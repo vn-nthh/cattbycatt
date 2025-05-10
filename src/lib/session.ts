@@ -12,10 +12,15 @@ function isBrowser(): boolean {
 }
 
 /**
- * Generates a random 6-digit session code
+ * Generates a random 6-character session code with digits, uppercase and lowercase letters
  */
 function generateSessionId(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return result;
 }
 
 /**
