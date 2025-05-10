@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 body {
-  background-color: #0c0d11;
+  background-color: #0f0f0f;
   background-image: 
-    radial-gradient(circle at 15% 35%, rgba(125, 125, 125, 0.04) 0%, transparent 45%),
-    radial-gradient(circle at 85% 25%, rgba(90, 90, 120, 0.05) 0%, transparent 55%),
-    radial-gradient(circle at 50% 80%, rgba(40, 40, 70, 0.06) 0%, transparent 60%);
+    radial-gradient(circle at 15% 35%, rgba(40, 40, 40, 0.03) 0%, transparent 45%),
+    radial-gradient(circle at 85% 25%, rgba(30, 30, 35, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(25, 25, 30, 0.04) 0%, transparent 55%);
   min-height: 100vh;
   margin: 0;
   padding: 0;

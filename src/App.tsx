@@ -306,18 +306,18 @@ function Content() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl mx-auto bg-gradient-to-b from-gray-900/80 to-slate-900/80 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden">
+    <div className="flex flex-col h-full w-full max-w-4xl mx-auto bg-gray-950/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-800/30">
       {!isStarted ? (
         <div className="flex flex-col items-center justify-center gap-8 p-10 text-center min-h-[80vh]">
           <div className="mb-4">
             <h1 className="text-4xl font-bold text-white text-shadow mb-2">CATT by Catt</h1>
-            <p className="text-xl text-blue-100 text-shadow">Real-time Speech Caption & Translation</p>
+            <p className="text-xl text-gray-400 text-shadow">Real-time Captioning And Translating Tool</p>
           </div>
           
-          <div className="w-full max-w-xs bg-white/10 backdrop-blur-sm p-6 rounded-xl shadow-inner">
+          <div className="w-full max-w-xs bg-gray-900/70 backdrop-blur-sm p-6 rounded-xl shadow-inner border border-gray-800/30">
             <h2 className="text-xl font-semibold text-white mb-4">Choose Your Language</h2>
             <select
-              className="w-full px-4 py-3 rounded-lg bg-white/90 text-blue-900 font-medium border-0 shadow-md transition-all hover:bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none mb-4"
+              className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md transition-all hover:bg-gray-750 focus:ring-2 focus:ring-gray-600 focus:outline-none mb-4"
               value={sourceLanguage}
               onChange={(e) => setSourceLanguage(e.target.value)}
             >
@@ -329,7 +329,7 @@ function Content() {
               ))}
             </select>
             
-            <label className="flex items-center justify-between w-full p-3 rounded-lg bg-white/20 text-white cursor-pointer hover:bg-white/30 transition-colors">
+            <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors">
               <span>Use GPT-4 Nano for translation</span>
               <div className="relative">
                 <input
@@ -338,7 +338,7 @@ function Content() {
                   onChange={(e) => setUseGpt(e.target.checked)}
                   className="sr-only"
                 />
-                <div className={`w-12 h-6 rounded-full ${useGpt ? 'bg-blue-500' : 'bg-gray-400'} transition-colors`}></div>
+                <div className={`w-12 h-6 rounded-full ${useGpt ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
                 <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${useGpt ? 'translate-x-6' : ''}`}></div>
               </div>
             </label>
@@ -348,11 +348,11 @@ function Content() {
             <div className="flex flex-col items-center mt-2">
               <button
                 onClick={startListening}
-                className="px-8 py-4 rounded-full text-lg font-bold bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-opacity-50"
+                className="px-8 py-4 rounded-full text-lg font-bold bg-gray-800 text-white shadow-lg hover:bg-gray-700 transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-opacity-50"
               >
                 Start Listening
               </button>
-              <div className="mt-4 text-blue-200">
+              <div className="mt-4 text-gray-400">
                 <Link 
                   to="/server-export" 
                   target="_blank"
@@ -370,24 +370,24 @@ function Content() {
       ) : (
         <div className="flex flex-col p-10 min-h-[80vh]">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-white text-shadow">Live Translation</h2>
+            <h2 className="text-2xl font-bold text-white text-shadow">Console</h2>
             <button 
               onClick={() => setIsStarted(false)}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-white/20 text-white hover:bg-white/30 transition-colors"
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-800/70 text-white hover:bg-gray-800 transition-colors"
             >
               Stop &amp; Reset
             </button>
           </div>
           
           <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
-            <div className="p-6 bg-blue-900/50 backdrop-blur-sm rounded-xl shadow-inner">
-              <div className="text-sm uppercase text-blue-300 mb-2 font-semibold">Original ({LANGUAGES[sourceLanguage as keyof typeof LANGUAGES]})</div>
+            <div className="p-6 bg-gray-900/60 backdrop-blur-sm rounded-xl shadow-inner border border-gray-800/30">
+              <div className="text-sm uppercase text-gray-400 mb-2 font-semibold">Original ({LANGUAGES[sourceLanguage as keyof typeof LANGUAGES]})</div>
               <p className="text-2xl text-white text-shadow min-h-[3rem]">{transcript || "Listening..."}</p>
             </div>
             
             {Object.entries(translations).map(([lang, translation]) => (
-              <div key={lang} className="p-6 bg-purple-900/50 backdrop-blur-sm rounded-xl shadow-inner">
-                <div className="text-sm uppercase text-purple-300 mb-2 font-semibold">{LANGUAGES[lang as keyof typeof LANGUAGES]}</div>
+              <div key={lang} className="p-6 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-inner border border-gray-800/30">
+                <div className="text-sm uppercase text-gray-400 mb-2 font-semibold">{LANGUAGES[lang as keyof typeof LANGUAGES]}</div>
                 <p className="text-2xl text-white text-shadow">{translation}</p>
               </div>
             ))}
@@ -397,7 +397,7 @@ function Content() {
             <Link 
               to="/server-export" 
               target="_blank"
-              className="flex items-center gap-2 px-5 py-3 rounded-lg bg-white/10 text-blue-200 hover:bg-white/20 hover:text-white transition-all"
+              className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-900/30 text-gray-400 hover:bg-gray-900/50 hover:text-white transition-all"
             >
               <span>Open OBS View</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
