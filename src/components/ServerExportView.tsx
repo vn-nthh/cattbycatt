@@ -1,51 +1,44 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { getSessionId } from "../lib/session";
 
 const ServerExportView: React.FC = () => {
-  const location = useLocation();
   const [searchParams] = useSearchParams();
   const isOBSMode = navigator.userAgent.includes('OBS') || searchParams.has('obs');
   
   // Get session ID from search params or fallback to local storage
   const sessionId = getSessionId(searchParams);
   
-  // Get transcript data from Convex with automatic polling
+  // Local state for handling data
+  const [updateTrigger, setUpdateTrigger] = useState(0);
+  
+  // Get transcript data from Convex
   const transcriptionData = useQuery(api.transcription.getTranscription, { 
-    sessionId: sessionId
+    sessionId: sessionId 
   });
   
-  // Store previous translations to detect changes
-  const prevTranslationsRef = useRef<Record<string, string>>({});
-  const [translationsKey, setTranslationsKey] = useState(0);
-  
-  // Trigger animation only when translations change
+  // Set up a refresh interval to force re-render
   useEffect(() => {
-    if (!transcriptionData?.translations) return;
+    const interval = setInterval(() => {
+      setUpdateTrigger(prev => prev + 1);
+    }, isOBSMode ? 300 : 1000);
     
-    const currentTranslations = JSON.stringify(transcriptionData.translations);
-    const prevTranslations = JSON.stringify(prevTranslationsRef.current);
-    
-    if (currentTranslations !== prevTranslations) {
-      prevTranslationsRef.current = {...transcriptionData.translations};
-      setTranslationsKey(prev => prev + 1);
-    }
-  }, [transcriptionData?.translations]);
+    return () => clearInterval(interval);
+  }, [isOBSMode]);
   
   // Set the document title and ensure the body has transparent background
   useEffect(() => {
     document.title = isOBSMode ? "OBS Captions" : "Live Caption Export";
     
-    // Force transparency on all elements
-    document.documentElement.setAttribute('style', 'background: transparent !important');
-    document.body.setAttribute('style', 'background: transparent !important');
-    
-    // Add classes for CSS rules
-    document.documentElement.classList.add('route-export');
-    document.body.classList.add('route-export');
-    
+    // Apply transparent background styles
+    document.body.style.backgroundColor = 'transparent';
+    document.documentElement.style.backgroundColor = 'transparent';
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    document.body.style.overflow = 'hidden';
+
     if (isOBSMode) {
       document.body.classList.add('obs-mode');
     }
@@ -53,10 +46,11 @@ const ServerExportView: React.FC = () => {
     // Clean up on unmount
     return () => {
       document.title = "Live Caption";
-      document.documentElement.removeAttribute('style');
-      document.body.removeAttribute('style');
-      document.documentElement.classList.remove('route-export');
-      document.body.classList.remove('route-export');
+      document.body.style.backgroundColor = ''; 
+      document.documentElement.style.backgroundColor = '';
+      document.body.style.margin = '';
+      document.body.style.padding = '';
+      document.body.style.overflow = '';
       document.body.classList.remove('obs-mode');
     };
   }, [isOBSMode]);
@@ -66,7 +60,7 @@ const ServerExportView: React.FC = () => {
     ? "text-4xl text-white obs-text-shadow" 
     : "text-3xl text-white text-shadow";
 
-  // If data is still loading, show a waiting message
+  // Display loading state
   if (!transcriptionData) {
     return (
       <div className="min-h-screen flex flex-col bg-transparent export-view no-scrollbar">
@@ -78,28 +72,32 @@ const ServerExportView: React.FC = () => {
   }
 
   // Get filtered translations (excluding source language)
-  const filteredTranslations: Record<string, string> = Object.entries(transcriptionData.translations)
+  const filteredTranslations = Object.entries(transcriptionData.translations || {})
     .filter(([lang]) => lang !== transcriptionData.sourceLanguage)
-    .reduce((acc, [lang, translation]) => ({
+    .reduce<Record<string, string>>((acc, [lang, translation]) => ({
       ...acc,
-      [lang]: translation
+      [lang]: translation as string
     }), {});
 
   // Display the transcription data with consistent spacing
   return (
     <div className="min-h-screen flex flex-col bg-transparent export-view no-scrollbar">
       <div className="flex flex-col p-4 text-center" style={{ gap: '2.5rem' }}>
-        {/* Transcript is not animated */}
+        {/* Transcript */}
         {transcriptionData.transcript ? (
           <p className={textClass}>{transcriptionData.transcript}</p>
         ) : (
           <p className={textClass}>Waiting for transcription...</p>
         )}
         
-        {/* Translations container with animation */}
-        <div key={translationsKey} className="translations-container animate-update">
+        {/* Translations container */}
+        <div className="translations-container">
           {Object.entries(filteredTranslations).map(([lang, translation], index) => (
-            <p key={lang} className={`${textClass} translation-item`} style={{ marginBottom: index < Object.keys(filteredTranslations).length - 1 ? '2.5rem' : 0 }}>
+            <p 
+              key={lang} 
+              className={`${textClass} translation-item`} 
+              style={{ marginBottom: index < Object.keys(filteredTranslations).length - 1 ? '2.5rem' : 0 }}
+            >
               {translation}
             </p>
           ))}
