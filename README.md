@@ -1,28 +1,49 @@
-# Live Caption and Translation Tool
-  
-This is a project built with [Chef](https://chef.convex.dev) using [Convex](https://convex.dev) as its backend.
-  
-This project is connected to the Convex deployment named [`veracious-guanaco-713`](https://dashboard.convex.dev/d/veracious-guanaco-713).
-  
-## Project structure
-  
-The frontend code is in the `app` directory and is built with [Vite](https://vitejs.dev/).
-  
-The backend code is in the `convex` directory.
-  
-`npm run dev` will start the frontend and backend servers.
+# CATT by Catt - Live Speech Caption and Translation Tool
 
-## App authentication
+A real-time speech recognition and translation application that provides immediate text transcription and translation for multilingual communication.
 
-Chef apps use [Convex Auth](https://auth.convex.dev/) with Anonymous auth for easy sign in. You may wish to change this before deploying your app.
+## Features
 
-## Developing and deploying your app
+- Real-time speech recognition using Web Speech API
+- Instant translation into multiple languages
+- Support for English, Japanese, and Korean
+- Clean, responsive UI for displaying transcriptions
+- OBS integration for streamers and content creators
 
-Check out the [Convex docs](https://docs.convex.dev/) for more information on how to develop with Convex.
-* If you're new to Convex, the [Overview](https://docs.convex.dev/understanding/) is a good place to start
-* Check out the [Hosting and Deployment](https://docs.convex.dev/production/) docs for how to deploy your app
-* Read the [Best Practices](https://docs.convex.dev/understanding/best-practices/) guide for tips on how to improve you app further
+## Project Structure
 
-## HTTP API
+- Frontend: React/Vite application in the `src` directory
+- Backend: Convex backend in the `convex` directory
+- Deployed on Netlify with Convex backend
 
-User-defined http routes are defined in the `convex/router.ts` file. We split these routes into a separate file from `convex/http.ts` to allow us to prevent the LLM from modifying the authentication routes.
+## Setup and Development
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Start development server:
+```bash
+npm run dev
+```
+
+3. Configure environment variables:
+   - `VITE_CONVEX_URL`: Your Convex deployment URL
+
+## Deployment
+
+The application is configured for deployment on Netlify with routing set up for SPA support.
+
+## Technology Stack
+
+- React 19
+- Vite
+- Convex
+- Web Speech API
+- Tailwind CSS
+- TypeScript
+
+## License
+
+MIT
