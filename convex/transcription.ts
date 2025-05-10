@@ -1,10 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-// Session ID for the active transcription - we'll use the same ID for all transcriptions
-// to simplify the implementation
-const GLOBAL_SESSION_ID = "global";
-
 /**
  * Store a new transcription
  */
@@ -13,13 +9,14 @@ export const storeTranscription = mutation({
     transcript: v.string(),
     translations: v.record(v.string(), v.string()),
     sourceLanguage: v.string(),
+    sessionId: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     // Get the existing transcription if it exists
     const existing = await ctx.db
       .query("transcriptions")
-      .withIndex("by_session", (q) => q.eq("sessionId", GLOBAL_SESSION_ID))
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .first();
 
     // If it exists, update it
@@ -33,7 +30,7 @@ export const storeTranscription = mutation({
     } else {
       // Otherwise, create a new one
       await ctx.db.insert("transcriptions", {
-        sessionId: GLOBAL_SESSION_ID,
+        sessionId: args.sessionId,
         transcript: args.transcript,
         translations: args.translations,
         sourceLanguage: args.sourceLanguage,
@@ -49,18 +46,20 @@ export const storeTranscription = mutation({
  * Get the current transcription
  */
 export const getTranscription = query({
-  args: {},
+  args: {
+    sessionId: v.string(),
+  },
   returns: v.object({
     transcript: v.string(),
     translations: v.record(v.string(), v.string()),
     sourceLanguage: v.string(),
     timestamp: v.number(),
   }),
-  handler: async (ctx) => {
-    // Get the existing transcription if it exists
+  handler: async (ctx, args) => {
+    // Get the existing transcription for this session
     const existing = await ctx.db
       .query("transcriptions")
-      .withIndex("by_session", (q) => q.eq("sessionId", GLOBAL_SESSION_ID))
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .first();
 
     // If it exists, return it

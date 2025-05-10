@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
 import ServerExportView from "./components/ServerExportView";
 import ConvexDiagnostic from "./components/ConvexDiagnostic";
+import { getSessionId } from "./lib/session";
 
 const LANGUAGES = {
   en: "English",
@@ -117,6 +118,7 @@ function Content() {
   const healthCheckIntervalRef = useRef<number | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
   const isRestartingRef = useRef<boolean>(false);
+  const sessionIdRef = useRef<string>(getSessionId());
 
   // Local state for transcript and translations
   const [transcript, setTranscript] = useState<string>("");
@@ -131,7 +133,8 @@ function Content() {
       storeTranscription({
         transcript,
         translations,
-        sourceLanguage
+        sourceLanguage,
+        sessionId: sessionIdRef.current
       }).catch(error => {
         console.error("Error storing transcription:", error);
       });

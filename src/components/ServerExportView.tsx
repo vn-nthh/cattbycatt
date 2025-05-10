@@ -2,15 +2,19 @@ import React, { useEffect, useState, useRef } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useLocation } from "react-router-dom";
+import { getSessionId } from "../lib/session";
 
 // Code for debugging
 const ServerExportView: React.FC = () => {
   const location = useLocation();
   const isOBSMode = navigator.userAgent.includes('OBS') || location.search.includes('obs=true');
+  const sessionIdRef = useRef<string>(getSessionId());
   
   // Get transcript data from Convex with automatic polling
   try {
-    const transcriptionData = useQuery(api.transcription.getTranscription);
+    const transcriptionData = useQuery(api.transcription.getTranscription, { 
+      sessionId: sessionIdRef.current 
+    });
     console.log("Transcription data:", transcriptionData);
     
     // Store previous translations to detect changes
