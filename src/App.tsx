@@ -308,6 +308,9 @@ function Content() {
     startRecognition(recognition);
   };
 
+  // Update the OBS link generation to include the session ID
+  const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}`;
+
   return (
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto bg-gray-950/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-800/30">
       {!isStarted ? (
@@ -357,7 +360,7 @@ function Content() {
               </button>
               <div className="mt-4 text-gray-400">
                 <Link 
-                  to="/server-export" 
+                  to={obsLinkWithSession}
                   target="_blank"
                   className="flex items-center gap-2 hover:text-white transition-colors"
                 >
@@ -398,7 +401,7 @@ function Content() {
           
           <div className="mt-8 flex justify-center">
             <Link 
-              to="/server-export" 
+              to={obsLinkWithSession}
               target="_blank"
               className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-900/30 text-gray-400 hover:bg-gray-900/50 hover:text-white transition-all"
             >

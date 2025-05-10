@@ -1,21 +1,24 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { getSessionId } from "../lib/session";
 
 // Code for debugging
 const ServerExportView: React.FC = () => {
   const location = useLocation();
-  const isOBSMode = navigator.userAgent.includes('OBS') || location.search.includes('obs=true');
-  const sessionIdRef = useRef<string>(getSessionId());
+  const [searchParams] = useSearchParams();
+  const isOBSMode = navigator.userAgent.includes('OBS') || searchParams.has('obs');
+  
+  // Get session ID from search params or fallback to local storage
+  const sessionId = getSessionId(searchParams);
   
   // Get transcript data from Convex with automatic polling
   try {
     const transcriptionData = useQuery(api.transcription.getTranscription, { 
-      sessionId: sessionIdRef.current 
+      sessionId: sessionId
     });
-    console.log("Transcription data:", transcriptionData);
+    console.log("Transcription data for session", sessionId, ":", transcriptionData);
     
     // Store previous translations to detect changes
     const prevTranslationsRef = useRef<Record<string, string>>({});
@@ -39,11 +42,11 @@ const ServerExportView: React.FC = () => {
       // This interval is just a safety measure; useQuery handles refreshes automatically
       const interval = setInterval(() => {
         // Force a re-render periodically
-        console.log("Refresh interval tick");
+        console.log("Refresh interval tick for session", sessionId);
       }, isOBSMode ? 300 : 1000); // 300ms for OBS, 1000ms for regular view
       
       return () => clearInterval(interval);
-    }, [isOBSMode]);
+    }, [isOBSMode, sessionId]);
     
     // Set the document title and ensure the body has transparent background
     useEffect(() => {
@@ -83,6 +86,7 @@ const ServerExportView: React.FC = () => {
         <div className="min-h-screen flex flex-col bg-transparent export-view no-scrollbar">
           <div className="flex flex-col gap-8 p-4 text-center">
             <p className={textClass}>Waiting for transcription...</p>
+            <p className="text-sm text-white text-shadow opacity-50">Session ID: {sessionId}</p>
           </div>
         </div>
       );
@@ -125,6 +129,7 @@ const ServerExportView: React.FC = () => {
         <div className="flex flex-col gap-8 p-4 text-center">
           <p className="text-3xl text-white text-shadow">Error loading transcription data.</p>
           <p className="text-xl text-white text-shadow">Please check console for details.</p>
+          <p className="text-sm text-white text-shadow opacity-50">Session ID: {sessionId}</p>
         </div>
       </div>
     );
