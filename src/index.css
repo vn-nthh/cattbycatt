@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: green;
+}
+
+/* For the export route, override the background */
+.route-export body, 
+.route-export html {
+  background-color: transparent !important;
+  background-image: none !important;
+  overflow: hidden;
+}
+
+/* OBS specific styles */
+.obs-mode {
+  background-color: rgba(0, 0, 0, 0) !important; 
+  background: none !important;
+}
+
+.text-shadow {
+  text-shadow: 
+    -1px -1px 0 #000,  
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000,
+    0 0 4px rgba(0,0,0,0.8);
+}
+
+/* Stronger text shadow for OBS to ensure visibility on any background */
+.obs-text-shadow {
+  text-shadow: 
+    -2px -2px 0 #000,  
+    2px -2px 0 #000,
+    -2px 2px 0 #000,
+    2px 2px 0 #000,
+    0 0 8px #000,
+    0 0 12px rgba(0,0,0,0.8);
+  /* Add a subtle glow effect to improve readability */
+  filter: drop-shadow(0 0 3px rgba(255,255,255,0.3));
+}
+
+.input-field {
+  @apply px-2 rounded border border-gray-300 bg-white/90 backdrop-blur-sm;
+}
+
+/* Export view specific styles */
+.export-view {
+  background: transparent !important;
+  min-height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* Hide scrollbars but allow scrolling */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}

@@ -1,0 +1,117 @@
+/* Base setup */
+body {
+  background-color: transparent !important;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: 'Quicksand', 'Segoe UI', sans-serif;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Flexbox container to center content */
+.export-view {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;  /* vertical centering */
+  align-items: center;      /* horizontal centering */
+  background: transparent !important;
+  min-height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* Text styling */
+p {
+  font-size: 2.5em;
+  font-weight: 500;
+  margin: -0.2em 0;
+  text-align: center;
+  letter-spacing: 0.5px;
+  width: 100%;
+  max-width: 100%;
+  background: linear-gradient(
+      to right,
+      #ff6b6b,
+      #4ecdc4,
+      #45b7d1,
+      #96c93d
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 
+      0 0 10px rgba(255, 255, 255, 0.3),
+      0 0 20px rgba(255, 255, 255, 0.2);
+  animation: fadeIn 0.5s ease-in-out, gradientGlow 8s ease infinite;
+}
+
+/* Base animation for translation elements */
+.animate-update p {
+  opacity: 0;
+  animation: fadeInGlow 1s ease-out forwards;
+}
+
+/* First translation appears immediately */
+.animate-update p:nth-child(1) {
+  animation-delay: 0s;
+}
+
+/* Second translation appears with slight delay */
+.animate-update p:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+/* Third translation appears with longer delay */
+.animate-update p:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+/* Ensure the translations container doesn't affect layout */
+.translations-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Prevent flickering by ensuring old content is removed before new content appears */
+.translation-item {
+  position: relative;
+}
+
+/* Fade in and glow animation */
+@keyframes fadeInGlow {
+  0% {
+    opacity: 0;
+    text-shadow: 
+      -2px -2px 0 #000,  
+      2px -2px 0 #000,
+      -2px 2px 0 #000,
+      2px 2px 0 #000,
+      0 0 8px #000;
+  }
+  50% {
+    opacity: 1;
+    text-shadow: 
+      -2px -2px 0 #000,  
+      2px -2px 0 #000,
+      -2px 2px 0 #000,
+      2px 2px 0 #000,
+      0 0 15px rgba(255,255,255,0.7),
+      0 0 25px rgba(255,255,255,0.5);
+  }
+  100% {
+    opacity: 1;
+    text-shadow: 
+      -2px -2px 0 #000,  
+      2px -2px 0 #000,
+      -2px 2px 0 #000,
+      2px 2px 0 #000,
+      0 0 8px #000,
+      0 0 12px rgba(0,0,0,0.8);
+  }
+} 
