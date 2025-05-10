@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { useEffect, useState, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
 import ServerExportView from "./components/ServerExportView";
+import ConvexDiagnostic from "./components/ConvexDiagnostic";
 
 const LANGUAGES = {
   en: "English",
@@ -77,11 +78,17 @@ function AppRoutes() {
     };
   }, [location]);
   
+  // Determine if we should show the diagnostic
+  const showDiagnostic = location.search.includes('debug=true');
+  
   return (
-    <Routes>
-      <Route path="/" element={<MainApp />} />
-      <Route path="/server-export" element={<ServerExportView />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<MainApp />} />
+        <Route path="/server-export" element={<ServerExportView />} />
+      </Routes>
+      {showDiagnostic && <ConvexDiagnostic />}
+    </>
   );
 }
 
