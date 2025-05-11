@@ -19,7 +19,6 @@ body {
 .route-export html {
   background-color: transparent !important;
   background-image: none !important;
-  background: transparent !important;
   overflow: hidden;
 }
 
@@ -74,8 +73,6 @@ body {
 /* Export view specific styles */
 .export-view {
   background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
   min-height: 100vh;
   width: 100vw;
   overflow: hidden;
