@@ -80,37 +80,11 @@ export const translateText = action({
     sourceLanguage: v.string(),
     targetLanguage: v.string(),
     useGpt: v.boolean(),
-    useChunking: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     if (args.useGpt) {
       try {
-        let prompt = "";
-        
-        if (args.useChunking) {
-          prompt = `You are a professional translator specializing in chunked speech translation.
-
-Instructions:
-1. Analyze the text to divide it into semantically sound phrases or sentences
-2. Add appropriate punctuation to set boundaries between these phrases
-3. Translate the text from ${LANGUAGES[args.sourceLanguage]} to ${LANGUAGES[args.targetLanguage]}
-4. ONLY mark incomplete phrases at the VERY END with [square brackets]
-
-IMPORTANT NOTES:
-- The brackets are ONLY a marker for the system to identify incomplete content
-- ALL bracket characters will be REMOVED from the displayed translation
-- ONLY use brackets at the very end of your translation for incomplete phrases
-- DO NOT use brackets anywhere else in your translation
-- The purpose of the brackets is to mark text that will be combined with the next chunk
-- Avoid placing a single bracket character like '[' or ']' on its own
-- Always use paired brackets [like this] when marking incomplete phrases
-
-Original text: ${args.text}
-
-Translate the content naturally. Remember the brackets are just system markers and will be removed before display.`;
-        } else {
-          prompt = `You are a professional translator. Translate the following text from ${LANGUAGES[args.sourceLanguage]} to ${LANGUAGES[args.targetLanguage]}. Maintain the original meaning and nuance, but make it sound natural in the target language:\n\n${args.text}`;
-        }
+        const prompt = `You are a professional translator. Translate the following text from ${LANGUAGES[args.sourceLanguage]} to ${LANGUAGES[args.targetLanguage]}. Maintain the original meaning and nuance, but make it sound natural in the target language:\n\n${args.text}`;
         
         const response = await openai.chat.completions.create({
           model: "gpt-4.1-nano",

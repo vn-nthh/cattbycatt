@@ -111,11 +111,8 @@ function Content() {
   const [isStarted, setIsStarted] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [useGpt, setUseGpt] = useState(false);
-  const [useChunking, setUseChunking] = useState(false);
   const translateText = useAction(api.translate.translateText);
   const accumulatedTextRef = useRef<string>("");
-  const leftoverTextRef = useRef<string>("");
-  const interimBufferRef = useRef<string>("");
   const translationTimeoutRef = useRef<number | null>(null);
   const restartTimeoutRef = useRef<number | null>(null);
   const healthCheckIntervalRef = useRef<number | null>(null);
@@ -144,14 +141,6 @@ function Content() {
     }
   }, [transcript, translations, sourceLanguage, storeTranscription]);
 
-  // Function to count words for English or characters for Asian languages
-  const countSpeechUnits = (text: string, language: string): number => {
-    if (language === "ja" || language === "ko") {
-      return text.length;
-    }
-    return text.trim().split(/\s+/).length;
-  };
-
   const translateAccumulatedText = async () => {
     const text = accumulatedTextRef.current.trim();
     console.log("Translating text:", text);
@@ -164,55 +153,119 @@ function Content() {
             sourceLanguage,
             targetLanguage: targetLang,
             useGpt,
-            useChunking,
           }).then(translation => ({ lang: targetLang, translation }))
         )
       );
       
-      // Process translations to extract leftovers if chunking is enabled
-      if (useGpt && useChunking) {
-        // Find the last pair of square brackets in the text - this should contain our leftover
-        const leftoverRegex = /\[([^\]]+)\](?:[^[]*$)/;
-        
-        // Use first target language to extract leftover (all should have the same chunking)
-        if (translationsResult.length > 0) {
-          const firstTranslation = translationsResult[0].translation;
-          const match = firstTranslation.match(leftoverRegex);
-          
-          if (match && match[1]) {
-            // Store the leftover text for next chunk
-            leftoverTextRef.current = match[1].trim();
-            console.log("Leftover text detected:", leftoverTextRef.current);
-          } else {
-            // No leftover detected, make sure to clear previous leftovers
-            leftoverTextRef.current = "";
-          }
-          
-          // Clean ALL translations for display
-          translationsResult.forEach(result => {
-            // First, extract content from properly formed brackets
-            result.translation = result.translation.replace(/\[([^\]]+)\]/g, '$1');
-            
-            // Then remove any remaining bracket characters
-            result.translation = result.translation.replace(/[\[\]]/g, '');
-            
-            // Finally trim any extra whitespace
-            result.translation = result.translation.trim();
-          });
-        }
-      }
-      
       const newTranslations = translationsResult.reduce(
-          (acc, { lang, translation }) => ({
-            ...acc,
-            [lang]: translation,
-          }),
-          {}
+        (acc, { lang, translation }) => ({
+          ...acc,
+          [lang]: translation,
+        }),
+        {}
       );
       
-      setTranslations(newTranslations);
+      setTranslations(prev => ({
+        ...prev,
+        ...newTranslations,
+      }));
+      
+      setTranscript(text);
+      accumulatedTextRef.current = "";
     }
   };
+
+  const handleSpeechResult = async (event: SpeechRecognitionEvent) => {
+    lastActivityRef.current = Date.now();
+    let finalTranscript = '';
+    let interimTranscript = '';
+    
+    console.log("Speech recognition event received", event.results.length);
+
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      const transcript = event.results[i][0].transcript;
+      
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript;
+        accumulatedTextRef.current = transcript;
+        
+        if (translationTimeoutRef.current) {
+          clearTimeout(translationTimeoutRef.current);
+        }
+        
+        translationTimeoutRef.current = window.setTimeout(translateAccumulatedText, 10);
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    // Update the displayed transcript with either final or interim results
+    if (finalTranscript) {
+      setTranscript(finalTranscript);
+    } else if (interimTranscript) {
+      setTranscript(interimTranscript);
+    }
+  };
+
+  useEffect(() => {
+    if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = sourceLanguage;
+
+      recognition.onresult = handleSpeechResult;
+
+      recognition.onend = () => {
+        if (isStarted && !isRestartingRef.current) {
+          if (restartTimeoutRef.current) {
+            clearTimeout(restartTimeoutRef.current);
+          }
+          restartTimeoutRef.current = window.setTimeout(() => {
+            if (isStarted) {
+              startRecognition(recognition);
+            }
+          }, 1000);
+        }
+      };
+
+      recognition.onerror = () => {
+        if (isStarted && !isRestartingRef.current) {
+          if (restartTimeoutRef.current) {
+            clearTimeout(restartTimeoutRef.current);
+          }
+          restartTimeoutRef.current = window.setTimeout(() => {
+            if (isStarted) {
+              startRecognition(recognition);
+            }
+          }, 1000);
+        }
+      };
+
+      setRecognition(recognition);
+
+      healthCheckIntervalRef.current = window.setInterval(() => {
+        const timeSinceLastActivity = Date.now() - lastActivityRef.current;
+        if (timeSinceLastActivity > 15000 && !isRestartingRef.current) {
+          forceRestart(recognition);
+        }
+      }, 5000);
+
+      return () => {
+        if (translationTimeoutRef.current) {
+          clearTimeout(translationTimeoutRef.current);
+        }
+        if (restartTimeoutRef.current) {
+          clearTimeout(restartTimeoutRef.current);
+        }
+        if (healthCheckIntervalRef.current) {
+          clearInterval(healthCheckIntervalRef.current);
+        }
+      };
+    }
+  }, [sourceLanguage, isStarted, useGpt, translateText]);
 
   const startRecognition = (recognition: SpeechRecognition) => {
     if (isRestartingRef.current) return;
@@ -260,164 +313,6 @@ function Content() {
     }, 1000);
   };
 
-  useEffect(() => {
-    if (window.SpeechRecognition || window.webkitSpeechRecognition) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = sourceLanguage;
-
-      // Create an interval to process accumulated interim results if chunking is enabled
-      let processInterimInterval: number | null = null;
-      
-      const processInterimBuffer = () => {
-        if (!useGpt || !useChunking || !isStarted || interimBufferRef.current.trim() === '') return;
-        
-        const chunkThreshold = sourceLanguage === "en" ? 10 : 15; // Lower thresholds to make chunking more aggressive
-        const units = countSpeechUnits(interimBufferRef.current, sourceLanguage);
-        
-        console.log(`Checking interim buffer (${units} units):`, interimBufferRef.current);
-        
-        if (units >= chunkThreshold) {
-          const fullText = leftoverTextRef.current 
-            ? `${leftoverTextRef.current} ${interimBufferRef.current}` 
-            : interimBufferRef.current;
-          
-          console.log("Processing interim chunk:", fullText);
-          accumulatedTextRef.current = fullText.trim();
-          
-          if (translationTimeoutRef.current) {
-            clearTimeout(translationTimeoutRef.current);
-          }
-          
-          translationTimeoutRef.current = window.setTimeout(translateAccumulatedText, 10);
-          
-          // Clear the interim buffer to start a new chunk
-          interimBufferRef.current = "";
-        }
-      };
-
-      const handleSpeechResult = async (event: SpeechRecognitionEvent) => {
-        lastActivityRef.current = Date.now();
-        let interimTranscript = '';
-        let finalTranscript = '';
-        
-        console.log("Speech recognition event received", event.results.length);
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const transcript = event.results[i][0].transcript;
-          
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-            // Reset interim buffer when we get final results
-            interimBufferRef.current = "";
-            
-            if (useGpt && useChunking) {
-              // Prepend leftover text if there's any
-              const fullText = leftoverTextRef.current ? `${leftoverTextRef.current} ${transcript}` : transcript;
-              
-              console.log("Processing final chunk:", fullText);
-              accumulatedTextRef.current = fullText.trim();
-              
-              if (translationTimeoutRef.current) {
-                clearTimeout(translationTimeoutRef.current);
-              }
-              
-              translationTimeoutRef.current = window.setTimeout(translateAccumulatedText, 10);
-            } else {
-              accumulatedTextRef.current = transcript;
-              
-              if (translationTimeoutRef.current) {
-                clearTimeout(translationTimeoutRef.current);
-              }
-              
-              translationTimeoutRef.current = window.setTimeout(translateAccumulatedText, 10);
-            }
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        // Update the displayed transcript
-        if (finalTranscript) {
-          setTranscript(finalTranscript);
-        } else if (interimTranscript) {
-          setTranscript(interimTranscript);
-          
-          // Apply chunking logic only if useChunking and useGpt is enabled
-          if (useGpt && useChunking) {
-            // Replace the interim buffer with the latest result instead of accumulating
-            // This gives us the most current interim result
-            interimBufferRef.current = interimTranscript;
-            console.log("Updated interim buffer:", interimBufferRef.current);
-            
-            // No need to process here - the interval will handle it
-          }
-        }
-      };
-
-      recognition.onresult = handleSpeechResult;
-
-      recognition.onend = () => {
-        if (isStarted && !isRestartingRef.current) {
-          if (restartTimeoutRef.current) {
-            clearTimeout(restartTimeoutRef.current);
-          }
-          restartTimeoutRef.current = window.setTimeout(() => {
-            if (isStarted) {
-              startRecognition(recognition);
-            }
-          }, 1000);
-        }
-      };
-
-      recognition.onerror = () => {
-        if (isStarted && !isRestartingRef.current) {
-          if (restartTimeoutRef.current) {
-            clearTimeout(restartTimeoutRef.current);
-          }
-          restartTimeoutRef.current = window.setTimeout(() => {
-            if (isStarted) {
-              startRecognition(recognition);
-            }
-          }, 1000);
-        }
-      };
-
-      setRecognition(recognition);
-
-      healthCheckIntervalRef.current = window.setInterval(() => {
-        const timeSinceLastActivity = Date.now() - lastActivityRef.current;
-        if (timeSinceLastActivity > 15000 && !isRestartingRef.current) {
-          forceRestart(recognition);
-        }
-      }, 5000);
-
-      // Set up the interval for processing interim results
-      if (useGpt && useChunking) {
-        processInterimInterval = window.setInterval(processInterimBuffer, 1000);
-        console.log("Setting up chunking interval");
-      }
-
-      return () => {
-        if (translationTimeoutRef.current) {
-          clearTimeout(translationTimeoutRef.current);
-        }
-        if (restartTimeoutRef.current) {
-          clearTimeout(restartTimeoutRef.current);
-        }
-        if (healthCheckIntervalRef.current) {
-          clearInterval(healthCheckIntervalRef.current);
-        }
-        if (processInterimInterval) {
-          clearInterval(processInterimInterval);
-        }
-      };
-    }
-  }, [sourceLanguage, isStarted, useGpt, useChunking, translateText]);
-
   const startListening = () => {
     if (!recognition) return;
     setIsStarted(true);
@@ -425,7 +320,7 @@ function Content() {
   };
 
   // Update the OBS link generation to include the session ID
-  const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}${useChunking ? '&chunking=true' : ''}`;
+  const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}`;
 
   return (
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto bg-gray-950/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-800/30">
@@ -464,22 +359,6 @@ function Content() {
                 <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${useGpt ? 'translate-x-6' : ''}`}></div>
               </div>
             </label>
-            
-            {useGpt && (
-              <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors">
-                <span>Use chunking algorithm</span>
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={useChunking}
-                    onChange={(e) => setUseChunking(e.target.checked)}
-                    className="sr-only"
-                  />
-                  <div className={`w-12 h-6 rounded-full ${useChunking ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
-                  <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${useChunking ? 'translate-x-6' : ''}`}></div>
-                </div>
-              </label>
-            )}
           </div>
           
           {sourceLanguage && (

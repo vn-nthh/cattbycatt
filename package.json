@@ -13,6 +13,7 @@
   "dependencies": {
     "@convex-dev/auth": "^0.0.80",
     "@google-cloud/translate": "^9.0.1",
+    "@google/generative-ai": "^0.24.1",
     "clsx": "^2.1.1",
     "convex": "1.21.1-alpha.1",
     "openai": "^4.97.0",
