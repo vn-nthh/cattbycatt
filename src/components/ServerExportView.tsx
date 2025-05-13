@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useSearchParams } from "react-router-dom";
@@ -13,6 +13,10 @@ const ServerExportView: React.FC = () => {
   
   // Local state for handling data
   const [updateTrigger, setUpdateTrigger] = useState(0);
+  
+  // Track previous translation content for change detection
+  const prevTranslationsRef = useRef<Record<string, string>>({});
+  const [animationKey, setAnimationKey] = useState(0);
   
   // Get transcript data from Convex
   const transcriptionData = useQuery(api.transcription.getTranscription, { 
@@ -32,13 +36,7 @@ const ServerExportView: React.FC = () => {
   useEffect(() => {
     document.title = isOBSMode ? "OBS Captions" : "Live Caption Export";
     
-    // Apply transparent background styles
-    document.body.style.backgroundColor = 'transparent';
-    document.documentElement.style.backgroundColor = 'transparent';
-    document.body.style.margin = '0';
-    document.body.style.padding = '0';
-    document.body.style.overflow = 'hidden';
-
+    // No need for inline styles as they're now in CSS
     if (isOBSMode) {
       document.body.classList.add('obs-mode');
     }
@@ -46,27 +44,18 @@ const ServerExportView: React.FC = () => {
     // Clean up on unmount
     return () => {
       document.title = "Live Caption";
-      document.body.style.backgroundColor = ''; 
-      document.documentElement.style.backgroundColor = '';
-      document.body.style.margin = '';
-      document.body.style.padding = '';
-      document.body.style.overflow = '';
       document.body.classList.remove('obs-mode');
     };
   }, [isOBSMode]);
 
-  // Enhance text visibility with stronger text shadow for OBS
-  const textClass = isOBSMode 
-    ? "text-4xl text-white obs-text-shadow" 
-    : "text-3xl text-white text-shadow";
+  // Apply text shadow class based on OBS mode
+  const textShadowClass = isOBSMode ? 'obs-text-shadow' : 'text-shadow';
 
   // Display loading state
   if (!transcriptionData) {
     return (
-      <div className="min-h-screen flex flex-col bg-transparent export-view no-scrollbar">
-        <div className="flex flex-col gap-8 p-4 text-center">
-          <p className={textClass}>Waiting for transcription...</p>
-        </div>
+      <div className="export-view">
+        <p className={textShadowClass}>Waiting for transcription...</p>
       </div>
     );
   }
@@ -78,31 +67,39 @@ const ServerExportView: React.FC = () => {
       ...acc,
       [lang]: translation as string
     }), {});
+    
+  // Check if translations changed
+  const translationsJson = JSON.stringify(filteredTranslations);
+  const prevTranslationsJson = JSON.stringify(prevTranslationsRef.current);
+  
+  // Update animation key when translations change (not transcriptions)
+  if (translationsJson !== prevTranslationsJson) {
+    prevTranslationsRef.current = filteredTranslations;
+    // Only use setTimeout in browser environment
+    if (typeof window !== 'undefined') {
+      // Small delay to ensure DOM updates first
+      setTimeout(() => setAnimationKey(prev => prev + 1), 0);
+    }
+  }
 
-  // Display the transcription data with consistent spacing
+  // Display the transcription data with animation only for translations
   return (
-    <div className="min-h-screen flex flex-col bg-transparent export-view no-scrollbar">
-      <div className="flex flex-col p-4 text-center" style={{ gap: '2.5rem' }}>
-        {/* Transcript */}
-        {transcriptionData.transcript ? (
-          <p className={textClass}>{transcriptionData.transcript}</p>
-        ) : (
-          <p className={textClass}>Waiting for transcription...</p>
-        )}
-        
-        {/* Translations container */}
-        <div className="translations-container">
-          {Object.entries(filteredTranslations).map(([lang, translation], index) => (
-            <p 
-              key={lang} 
-              className={`${textClass} translation-item`} 
-              style={{ marginBottom: index < Object.keys(filteredTranslations).length - 1 ? '2.5rem' : 0 }}
-            >
-              {translation}
-            </p>
+    <div className="export-view">
+      {/* Transcript - no animation */}
+      {transcriptionData.transcript ? (
+        <p className={textShadowClass}>{transcriptionData.transcript}</p>
+      ) : (
+        <p className={textShadowClass}>Waiting for transcription...</p>
+      )}
+      
+      {/* Translations - with animation */}
+      {Object.entries(filteredTranslations).length > 0 && (
+        <div className="animate-update" key={animationKey}>
+          {Object.entries(filteredTranslations).map(([lang, translation]) => (
+            <p key={lang} className={textShadowClass}>{translation}</p>
           ))}
         </div>
-      </div>
+      )}
     </div>
   );
 };

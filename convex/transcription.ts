@@ -13,6 +13,8 @@ export const storeTranscription = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const timestamp = Date.now();
+    
     // Get the existing transcription if it exists
     const existing = await ctx.db
       .query("transcriptions")
@@ -25,7 +27,10 @@ export const storeTranscription = mutation({
         transcript: args.transcript,
         translations: args.translations,
         sourceLanguage: args.sourceLanguage,
-        timestamp: Date.now(),
+        timestamp,
+        updatedAt: timestamp,
+        // Preserve isLLMProcessed if it exists, otherwise set to false
+        isLLMProcessed: existing.isLLMProcessed !== undefined ? existing.isLLMProcessed : false,
       });
     } else {
       // Otherwise, create a new one
@@ -34,7 +39,9 @@ export const storeTranscription = mutation({
         transcript: args.transcript,
         translations: args.translations,
         sourceLanguage: args.sourceLanguage,
-        timestamp: Date.now(),
+        timestamp,
+        updatedAt: timestamp,
+        isLLMProcessed: false,
       });
     }
 
@@ -53,7 +60,7 @@ export const getTranscription = query({
     transcript: v.string(),
     translations: v.record(v.string(), v.string()),
     sourceLanguage: v.string(),
-    timestamp: v.number(),
+    timestamp: v.float64(),
   }),
   handler: async (ctx, args) => {
     // Get the existing transcription for this session
