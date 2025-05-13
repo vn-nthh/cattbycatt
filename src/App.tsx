@@ -7,12 +7,14 @@ import ServerExportView from "./components/ServerExportView";
 import ConvexDiagnostic from "./components/ConvexDiagnostic";
 import { getSessionId } from "./lib/session";
 
+// Define supported languages
 const LANGUAGES = {
   en: "English",
   ja: "Japanese",
   ko: "Korean",
 } as const;
 
+// Speech recognition interfaces
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number;
   results: SpeechRecognitionResultList;
@@ -112,12 +114,6 @@ function Content() {
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [useGpt, setUseGpt] = useState(false);
   const translateText = useAction(api.translate.translateText);
-  const accumulatedTextRef = useRef<string>("");
-  const translationTimeoutRef = useRef<number | null>(null);
-  const restartTimeoutRef = useRef<number | null>(null);
-  const healthCheckIntervalRef = useRef<number | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
-  const isRestartingRef = useRef<boolean>(false);
   const sessionIdRef = useRef<string>(getSessionId());
 
   // Local state for transcript and translations
@@ -141,182 +137,117 @@ function Content() {
     }
   }, [transcript, translations, sourceLanguage, storeTranscription]);
 
-  const translateAccumulatedText = async () => {
-    const text = accumulatedTextRef.current.trim();
-    console.log("Translating text:", text);
-    if (text) {
-      const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
-      const translationsResult = await Promise.all(
-        targetLanguages.map(targetLang =>
-          translateText({
-            text,
-            sourceLanguage,
-            targetLanguage: targetLang,
-            useGpt,
-          }).then(translation => ({ lang: targetLang, translation }))
-        )
-      );
-      
-      const newTranslations = translationsResult.reduce(
-        (acc, { lang, translation }) => ({
-          ...acc,
-          [lang]: translation,
-        }),
-        {}
-      );
-      
-      setTranslations(prev => ({
-        ...prev,
-        ...newTranslations,
-      }));
-      
-      setTranscript(text);
-      accumulatedTextRef.current = "";
-    }
-  };
-
-  const handleSpeechResult = async (event: SpeechRecognitionEvent) => {
-    lastActivityRef.current = Date.now();
-    let finalTranscript = '';
-    let interimTranscript = '';
-    
-    console.log("Speech recognition event received", event.results.length);
-
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
-      const transcript = event.results[i][0].transcript;
-      
-      if (event.results[i].isFinal) {
-        finalTranscript += transcript;
-        accumulatedTextRef.current = transcript;
-        
-        if (translationTimeoutRef.current) {
-          clearTimeout(translationTimeoutRef.current);
-        }
-        
-        translationTimeoutRef.current = window.setTimeout(translateAccumulatedText, 10);
-      } else {
-        interimTranscript += transcript;
-      }
-    }
-
-    // Update the displayed transcript with either final or interim results
-    if (finalTranscript) {
-      setTranscript(finalTranscript);
-    } else if (interimTranscript) {
-      setTranscript(interimTranscript);
-    }
-  };
-
+  // Initialize Web Speech API and handle transcription
   useEffect(() => {
-    if (window.SpeechRecognition || window.webkitSpeechRecognition) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = sourceLanguage;
+    if (!sourceLanguage || !isStarted) return;
 
-      recognition.onresult = handleSpeechResult;
-
-      recognition.onend = () => {
-        if (isStarted && !isRestartingRef.current) {
-          if (restartTimeoutRef.current) {
-            clearTimeout(restartTimeoutRef.current);
-          }
-          restartTimeoutRef.current = window.setTimeout(() => {
-            if (isStarted) {
-              startRecognition(recognition);
-            }
-          }, 1000);
-        }
-      };
-
-      recognition.onerror = () => {
-        if (isStarted && !isRestartingRef.current) {
-          if (restartTimeoutRef.current) {
-            clearTimeout(restartTimeoutRef.current);
-          }
-          restartTimeoutRef.current = window.setTimeout(() => {
-            if (isStarted) {
-              startRecognition(recognition);
-            }
-          }, 1000);
-        }
-      };
-
-      setRecognition(recognition);
-
-      healthCheckIntervalRef.current = window.setInterval(() => {
-        const timeSinceLastActivity = Date.now() - lastActivityRef.current;
-        if (timeSinceLastActivity > 15000 && !isRestartingRef.current) {
-          forceRestart(recognition);
-        }
-      }, 5000);
-
-      return () => {
-        if (translationTimeoutRef.current) {
-          clearTimeout(translationTimeoutRef.current);
-        }
-        if (restartTimeoutRef.current) {
-          clearTimeout(restartTimeoutRef.current);
-        }
-        if (healthCheckIntervalRef.current) {
-          clearInterval(healthCheckIntervalRef.current);
-        }
-      };
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.error("Speech Recognition API not supported in this browser");
+      return;
     }
+
+    const recognitionInstance = new SpeechRecognition();
+    recognitionInstance.continuous = true;
+    recognitionInstance.interimResults = true;
+    recognitionInstance.lang = sourceLanguage;
+
+    recognitionInstance.onresult = async (event: SpeechRecognitionEvent) => {
+      let finalTranscript = '';
+      let interimTranscript = '';
+      
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const transcript = event.results[i][0].transcript;
+        
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+          
+          // Send for translation immediately
+          if (finalTranscript.trim()) {
+            // Translate the text to all target languages
+            const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
+            
+            try {
+              const translationsResult = await Promise.all(
+                targetLanguages.map(targetLang =>
+                  translateText({
+                    text: finalTranscript.trim(),
+                    sourceLanguage,
+                    targetLanguage: targetLang,
+                    useGpt,
+                  }).then(translation => ({ lang: targetLang, translation }))
+                )
+              );
+              
+              const newTranslations = translationsResult.reduce(
+                (acc, { lang, translation }) => ({
+                  ...acc,
+                  [lang]: translation,
+                }),
+                {}
+              );
+              
+              setTranslations(newTranslations);
+              setTranscript(finalTranscript);
+            } catch (error) {
+              console.error("Translation error:", error);
+            }
+          }
+        } else {
+          interimTranscript += transcript;
+          // Display interim results
+          setTranscript(interimTranscript);
+        }
+      }
+    };
+
+    // Handle recognition errors and restarts
+    recognitionInstance.onerror = () => {
+      if (isStarted) {
+        setTimeout(() => {
+          try {
+            recognitionInstance.start();
+          } catch (error) {
+            console.error("Error restarting recognition:", error);
+          }
+        }, 1000);
+      }
+    };
+
+    recognitionInstance.onend = () => {
+      if (isStarted) {
+        setTimeout(() => {
+          try {
+            recognitionInstance.start();
+          } catch (error) {
+            console.error("Error restarting recognition:", error);
+          }
+        }, 1000);
+      }
+    };
+
+    setRecognition(recognitionInstance);
+    
+    // Start recognition
+    try {
+      recognitionInstance.start();
+    } catch (error) {
+      console.error("Error starting recognition:", error);
+    }
+    
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      try {
+        recognitionInstance.stop();
+      } catch (e) {
+        console.error("Error stopping recognition:", e);
+      }
+    };
   }, [sourceLanguage, isStarted, useGpt, translateText]);
 
-  const startRecognition = (recognition: SpeechRecognition) => {
-    if (isRestartingRef.current) return;
-    
-    isRestartingRef.current = true;
-    
-    try {
-      recognition.start();
-      lastActivityRef.current = Date.now();
-    } catch (error) {
-      if (restartTimeoutRef.current) {
-        clearTimeout(restartTimeoutRef.current);
-      }
-      restartTimeoutRef.current = window.setTimeout(() => {
-        if (isStarted) {
-          isRestartingRef.current = false;
-          startRecognition(recognition);
-        }
-      }, 1000);
-    } finally {
-      isRestartingRef.current = false;
-    }
-  };
-
-  const forceRestart = (recognition: SpeechRecognition) => {
-    if (!isStarted || isRestartingRef.current) return;
-    
-    isRestartingRef.current = true;
-    
-    try {
-      recognition.stop();
-    } catch (e) {
-      console.error("Error stopping recognition:", e);
-    }
-    
-    if (restartTimeoutRef.current) {
-      clearTimeout(restartTimeoutRef.current);
-    }
-    
-    restartTimeoutRef.current = window.setTimeout(() => {
-      if (isStarted) {
-        isRestartingRef.current = false;
-        startRecognition(recognition);
-      }
-    }, 1000);
-  };
-
+  // Start/stop listening
   const startListening = () => {
-    if (!recognition) return;
     setIsStarted(true);
-    startRecognition(recognition);
   };
 
   // Update the OBS link generation to include the session ID

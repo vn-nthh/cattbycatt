@@ -12,6 +12,8 @@ export default defineSchema({
     transcript: v.string(),
     translations: v.record(v.string(), v.string()),
     sourceLanguage: v.optional(v.string()),
-    timestamp: v.number(),
+    timestamp: v.float64(),
+    updatedAt: v.optional(v.float64()),
+    isLLMProcessed: v.optional(v.boolean()),
   }).index("by_session", ["sessionId"]),
 });
