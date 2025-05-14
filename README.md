@@ -1,7 +1,7 @@
 # CATT by Catt - Live Speech Caption and Translation Tool
 
 A real-time speech recognition and translation application that provides immediate text transcription and translation for multilingual communication.
-A public-use version is available at: [CATTbycatt](https://cattbycatt.netlify.app/)
+A free-to-use version is available at: [CATTbyCatt.netlify.app](https://cattbycatt.netlify.app/)
 
 ## Features
 
