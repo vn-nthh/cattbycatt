@@ -163,7 +163,7 @@ const ServerExportView: React.FC = () => {
       return (
         <div 
           ref={containerRef}
-          className="sliding-window-container"
+          className="sliding-window-container punctuation-enabled"
           style={{
             width: `${windowWidth}px`,
             overflow: 'hidden',
@@ -187,7 +187,8 @@ const ServerExportView: React.FC = () => {
         </div>
       );
     } else {
-      return <p className={textShadowClass}>{transcriptionData.transcript}</p>;
+      // Normal mode: simple centered text, no sliding, no mask
+      return <p className={textShadowClass} style={{textAlign: 'center', width: '100%'}}>{transcriptionData.transcript}</p>;
     }
   };
 

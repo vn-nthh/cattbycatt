@@ -115,7 +115,10 @@ body {
   display: flex;
   align-items: center;
   position: relative;
-  /* Use mask to create fade effect on the left */
+}
+
+/* Only apply the fade/mask when punctuation is enabled */
+.sliding-window-container.punctuation-enabled {
   -webkit-mask: linear-gradient(to right, 
     transparent 0px,
     rgba(0, 0, 0, 0.1) 20px,
