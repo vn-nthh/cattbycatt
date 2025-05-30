@@ -11,6 +11,9 @@ const ServerExportView: React.FC = () => {
   // Get session ID from search params or fallback to local storage
   const sessionId = getSessionId(searchParams);
   
+  // Check if punctuation mode is enabled
+  const isPunctuationEnabled = searchParams.has('punctuation');
+  
   // Local state for handling data
   const [updateTrigger, setUpdateTrigger] = useState(0);
   
@@ -18,10 +21,78 @@ const ServerExportView: React.FC = () => {
   const prevTranslationsRef = useRef<Record<string, string>>({});
   const [animationKey, setAnimationKey] = useState(0);
   
+  // Sliding window state
+  const [windowWidth, setWindowWidth] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLParagraphElement>(null);
+  const [textOffset, setTextOffset] = useState(0);
+  const [isInitialRender, setIsInitialRender] = useState(true);
+  
   // Get transcript data from Convex
   const transcriptionData = useQuery(api.transcription.getTranscription, { 
     sessionId: sessionId 
   });
+  
+  // Reset initial render state when transcript changes from empty to having content
+  useEffect(() => {
+    if (transcriptionData?.transcript && transcriptionData.transcript.trim()) {
+      setIsInitialRender(true);
+    }
+  }, [transcriptionData?.transcript ? transcriptionData.transcript.split(' ').length : 0]);
+  
+  // Set up window resize handler for sliding window
+  useEffect(() => {
+    if (!isPunctuationEnabled) return;
+    
+    const updateWindowWidth = () => {
+      const width = window.innerWidth * (2/3); // 2/3 of browser width
+      setWindowWidth(width);
+    };
+    
+    updateWindowWidth();
+    window.addEventListener('resize', updateWindowWidth);
+    return () => window.removeEventListener('resize', updateWindowWidth);
+  }, [isPunctuationEnabled]);
+  
+  // Handle sliding window effect when transcript changes
+  useEffect(() => {
+    if (!isPunctuationEnabled || !transcriptionData?.transcript || !textRef.current || !containerRef.current) {
+      return;
+    }
+    
+    const textElement = textRef.current;
+    const containerWidth = windowWidth;
+    
+    // Use a timeout to ensure the DOM has updated with new text content
+    const measureAndPosition = () => {
+      const textWidth = textElement.scrollWidth;
+      
+      // Always start text from the middle of the container
+      // As text grows, it will naturally extend to the right first
+      // When it exceeds container width, we slide it left to keep newest text visible
+      const middleStart = containerWidth / 2;
+      
+      if (textWidth <= containerWidth) {
+        // Text fits entirely - keep it starting from middle
+        setTextOffset(middleStart - (textWidth / 2));
+      } else {
+        // Text is longer than container - slide left to show newest content
+        // Keep the rightmost part visible, which means the newest text
+        const overflow = textWidth - containerWidth;
+        setTextOffset(middleStart - textWidth + (containerWidth / 2));
+      }
+      
+      // After first positioning, enable transitions
+      if (isInitialRender) {
+        setTimeout(() => setIsInitialRender(false), 100);
+      }
+    };
+    
+    // Small delay to ensure text rendering is complete
+    const timeoutId = setTimeout(measureAndPosition, 50);
+    
+    return () => clearTimeout(timeoutId);
+  }, [transcriptionData?.transcript, isPunctuationEnabled, windowWidth, isInitialRender]);
   
   // Set up a refresh interval to force re-render
   useEffect(() => {
@@ -82,15 +153,49 @@ const ServerExportView: React.FC = () => {
     }
   }
 
+  // Render transcript with sliding window if punctuation is enabled
+  const renderTranscript = () => {
+    if (!transcriptionData.transcript) {
+      return <p className={textShadowClass}>Waiting for transcription...</p>;
+    }
+    
+    if (isPunctuationEnabled) {
+      return (
+        <div 
+          ref={containerRef}
+          className="sliding-window-container"
+          style={{
+            width: `${windowWidth}px`,
+            overflow: 'hidden',
+            position: 'relative',
+          }}
+        >
+          <p 
+            ref={textRef}
+            className={`${textShadowClass} sliding-text`}
+            style={{
+              transform: `translateX(${textOffset}px)`,
+              transition: isInitialRender ? 'none' : 'transform 0.3s ease-out',
+              whiteSpace: 'nowrap',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+            }}
+          >
+            {transcriptionData.transcript}
+          </p>
+        </div>
+      );
+    } else {
+      return <p className={textShadowClass}>{transcriptionData.transcript}</p>;
+    }
+  };
+
   // Display the transcription data with animation only for translations
   return (
     <div className="export-view">
-      {/* Transcript - no animation */}
-      {transcriptionData.transcript ? (
-        <p className={textShadowClass}>{transcriptionData.transcript}</p>
-      ) : (
-        <p className={textShadowClass}>Waiting for transcription...</p>
-      )}
+      {/* Transcript - with sliding window if punctuation enabled */}
+      {renderTranscript()}
       
       {/* Translations - with animation */}
       {Object.entries(filteredTranslations).length > 0 && (

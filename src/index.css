@@ -108,6 +108,42 @@ body {
   line-height: 1.3;
 }
 
+/* Sliding window container styles */
+.sliding-window-container {
+  margin: 0.3em 0;
+  height: calc(2.5em * 1.3); /* Match font-size * line-height of regular text */
+  display: flex;
+  align-items: center;
+  position: relative;
+  /* Use mask to create fade effect on the left */
+  -webkit-mask: linear-gradient(to right, 
+    transparent 0px,
+    rgba(0, 0, 0, 0.1) 20px,
+    rgba(0, 0, 0, 0.5) 50px,
+    rgba(0, 0, 0, 1) 80px,
+    rgba(0, 0, 0, 1) 100%
+  );
+  mask: linear-gradient(to right, 
+    transparent 0px,
+    rgba(0, 0, 0, 0.1) 20px,
+    rgba(0, 0, 0, 0.5) 50px,
+    rgba(0, 0, 0, 1) 80px,
+    rgba(0, 0, 0, 1) 100%
+  );
+}
+
+.sliding-text {
+  font-size: 2.5em !important;
+  font-weight: 500 !important;
+  margin: 0 !important;
+  text-align: left !important;
+  letter-spacing: 0.5px !important;
+  color: white !important;
+  line-height: 1.3 !important;
+  white-space: nowrap !important;
+  position: relative;
+}
+
 /* Structure for animate-update class - animation to be provided by client CSS */
 .animate-update p {
   /* Client will provide their own animations */
