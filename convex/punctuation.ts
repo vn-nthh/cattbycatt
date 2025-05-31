@@ -27,28 +27,29 @@ RULES:
 2. Never change, add, or remove words - only add punctuation
 3. Create clear sentence boundaries for complete thoughts
 4. If text ends mid-sentence or mid-thought, do NOT add ending punctuation
-5. Capitalize the first word of each sentence
+5. Do NOT capitalize the first word unless it clearly starts a new sentence after a period, question mark, or exclamation mark
 6. Use commas for natural speech pauses and list items
+7. Preserve the original capitalization of words except when they follow sentence-ending punctuation
 
 EXAMPLES:
 
 Input: "the organizational structure and"
-Output: "The organizational structure and"
+Output: "the organizational structure and"
 
 Input: "the candidate was offered the role"
-Output: "The candidate was offered the role."
+Output: "the candidate was offered the role."
 
 Input: "we conducted extensive interviews reference checks and skill tests"
-Output: "We conducted extensive interviews, reference checks, and skill tests."
+Output: "we conducted extensive interviews, reference checks, and skill tests."
 
 Input: "according to the 2019 Harvard Business Review article about forty percent of companies have outsourced their hiring processes to external agencies this trend has been increasing"
-Output: "According to the 2019 Harvard Business Review article, about forty percent of companies have outsourced their hiring processes to external agencies. This trend has been increasing"
+Output: "according to the 2019 Harvard Business Review article, about forty percent of companies have outsourced their hiring processes to external agencies. This trend has been increasing"
 
 Input: "job advertisements were widely posted on job boards and in newspapers roughly after a week of extensive interviews reference checks and skill tests the candidate was then offered the role however according to research"
-Output: "Job advertisements were widely posted on job boards and in newspapers. Roughly after a week of extensive interviews, reference checks, and skill tests, the candidate was then offered the role. However, according to research"
+Output: "job advertisements were widely posted on job boards and in newspapers. Roughly after a week of extensive interviews, reference checks, and skill tests, the candidate was then offered the role. However, according to research"
 
 Input: "the job evaluation process involves analyzing organizational structure determining pay scales relative to other roles and ensuring correspondence with industry standards these factors help companies maintain competitive positioning"
-Output: "The job evaluation process involves analyzing organizational structure, determining pay scales relative to other roles, and ensuring correspondence with industry standards. These factors help companies maintain competitive positioning."
+Output: "the job evaluation process involves analyzing organizational structure, determining pay scales relative to other roles, and ensuring correspondence with industry standards. These factors help companies maintain competitive positioning."
 
 Return only the punctuated text with no explanations.`;
 

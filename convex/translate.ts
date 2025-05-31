@@ -84,11 +84,14 @@ export const translateText = action({
   handler: async (ctx, args) => {
     if (args.useGpt) {
       try {
-        const prompt = `You are a professional translator. Translate the following text from ${LANGUAGES[args.sourceLanguage]} to ${LANGUAGES[args.targetLanguage]}. Maintain the original meaning and nuance, but make it sound natural in the target language:\n\n${args.text}`;
+        const systemPrompt = `You are a professional translator. Translate the following text from ${LANGUAGES[args.sourceLanguage]} to ${LANGUAGES[args.targetLanguage]}. Maintain the original meaning and nuance, but make it sound natural in the target language. Return only the translated text with no explanations or additional content.`;
         
         const response = await openai.chat.completions.create({
           model: "gpt-4.1-nano",
-          messages: [{ role: "user", content: prompt }],
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: args.text }
+          ],
           temperature: 0.3, // Lower temperature for more consistent translations
           max_tokens: 500,
         });
