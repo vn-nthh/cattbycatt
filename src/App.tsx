@@ -14,6 +14,102 @@ const LANGUAGES = {
   ko: "Korean",
 } as const;
 
+// Internationalization for main app
+interface MainAppTranslations {
+  // App title and description
+  appTitle: string;
+  appSubtitle: string;
+  
+  // Language selection
+  chooseLanguage: string;
+  selectLanguage: string;
+  
+  // Settings
+  useGptTranslation: string;
+  longTextChunking: string;
+  
+  // Actions
+  startListening: string;
+  customizeObsStyling: string;
+  
+  // Console page
+  console: string;
+  stopAndReset: string;
+  listening: string;
+  processing: string;
+  punctuationActive: string;
+  incomplete: string;
+  
+  // Language labels
+  original: string;
+  
+  // Links
+  openObsView: string;
+  customizeObs: string;
+}
+
+const mainAppTranslations: Record<string, MainAppTranslations> = {
+  en: {
+    appTitle: "CATT by Catt",
+    appSubtitle: "Real-time Captioning And Translating Tool",
+    chooseLanguage: "Choose Your Language",
+    selectLanguage: "Select Language",
+    useGptTranslation: "Use GPT-4 Nano for translation",
+    longTextChunking: "Long text chunking algorithm (Experimental)",
+    startListening: "Start Listening",
+    customizeObsStyling: "🎨 Customize OBS Styling",
+    console: "Console",
+    stopAndReset: "Stop & Reset",
+    listening: "Listening...",
+    processing: "Processing...",
+    punctuationActive: "Punctuation Active",
+    incomplete: "Incomplete",
+    original: "Original",
+    openObsView: "Open OBS View",
+    customizeObs: "🎨 Customize OBS"
+  },
+  
+  ja: {
+    appTitle: "CATT by Catt",
+    appSubtitle: "リアルタイム字幕・翻訳ツール",
+    chooseLanguage: "言語を選択",
+    selectLanguage: "言語を選択",
+    useGptTranslation: "翻訳にGPT-4 Nanoを使用",
+    longTextChunking: "長文チャンク化アルゴリズム（実験的）",
+    startListening: "聞き取り開始",
+    customizeObsStyling: "🎨 OBSスタイルをカスタマイズ",
+    console: "コンソール",
+    stopAndReset: "停止してリセット",
+    listening: "聞き取り中...",
+    processing: "処理中...",
+    punctuationActive: "句読点処理が有効",
+    incomplete: "未完了",
+    original: "原文",
+    openObsView: "OBSビューを開く",
+    customizeObs: "🎨 OBSをカスタマイズ"
+  },
+  
+  ko: {
+    appTitle: "CATT by Catt",
+    appSubtitle: "실시간 자막 및 번역 도구",
+    chooseLanguage: "언어 선택",
+    selectLanguage: "언어 선택",
+    useGptTranslation: "번역에 GPT-4 Nano 사용",
+    longTextChunking: "긴 텍스트 청킹 알고리즘 (실험적)",
+    startListening: "듣기 시작",
+    customizeObsStyling: "🎨 OBS 스타일 사용자 지정",
+    console: "콘솔",
+    stopAndReset: "정지 및 재설정",
+    listening: "듣는 중...",
+    processing: "처리 중...",
+    punctuationActive: "구두점 처리 활성화",
+    incomplete: "미완료",
+    original: "원본",
+    openObsView: "OBS 보기 열기",
+    customizeObs: "🎨 OBS 사용자 지정"
+  }
+};
+
 // Speech recognition interfaces
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number;
@@ -113,21 +209,43 @@ function Content() {
   const [isStarted, setIsStarted] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [useGpt, setUseGpt] = useState(false);
-  
-  // Punctuation restoration state
+
+  // Punctuation state
   const [usePunctuation, setUsePunctuation] = useState(false);
   const [lastProcessedText, setLastProcessedText] = useState("");
   const [leftoverText, setLeftoverText] = useState("");
   const [leftoverStartTime, setLeftoverStartTime] = useState<number | null>(null);
   const [isProcessingPunctuation, setIsProcessingPunctuation] = useState(false);
-  
+
+  // UI language state to trigger re-renders when changed
+  const [uiLanguage, setUiLanguage] = useState(() => {
+    return localStorage.getItem('language') || 'en';
+  });
+
+  // Helper function to get current translations with fallback
+  const t = mainAppTranslations[uiLanguage] || mainAppTranslations.en;
+
+  // Function to update UI language based on source language
+  const updateUILanguageFromSource = (selectedSourceLanguage: string) => {
+    let newUILanguage = 'en'; // Default to English
+    
+    if (selectedSourceLanguage === 'ja') {
+      newUILanguage = 'ja';
+    } else if (selectedSourceLanguage === 'ko') {
+      newUILanguage = 'ko';
+    }
+    
+    localStorage.setItem('language', newUILanguage);
+    setUiLanguage(newUILanguage);
+  };
+
   const translateText = useAction(api.translate.translateText);
   const addPunctuation = useAction(api.punctuation.addPunctuation);
-  const sessionIdRef = useRef<string>(getSessionId());
+  const sessionIdRef = useRef(getSessionId());
   
   // Add ref to track if we want to keep listening (for proper cleanup)
   const shouldKeepListeningRef = useRef(false);
-  
+
   // Refs for punctuation processing
   const punctuationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentTranscriptRef = useRef<string>("");
@@ -153,6 +271,29 @@ function Content() {
       });
     }
   }, [transcript, translations, sourceLanguage, storeTranscription]);
+
+  // Store source language in sessionStorage whenever it changes (including initial load)
+  useEffect(() => {
+    if (sourceLanguage) {
+      const key = `sourceLanguage_${sessionIdRef.current}`;
+      console.log('[Main App] About to store:', {
+        sourceLanguage,
+        sessionId: sessionIdRef.current,
+        key
+      });
+      
+      sessionStorage.setItem(key, sourceLanguage);
+      
+      // Verify it was stored
+      const verification = sessionStorage.getItem(key);
+      console.log('[Main App] Verification - stored value:', JSON.stringify(verification));
+      
+      // List all sessionStorage keys for debugging
+      console.log('[Main App] All sessionStorage keys:', Object.keys(sessionStorage));
+    } else {
+      console.log('[Main App] Skipping storage because sourceLanguage is:', JSON.stringify(sourceLanguage));
+    }
+  }, [sourceLanguage]);
 
   // Punctuation processing logic
   const processPunctuationChunk = async (currentText: string) => {
@@ -508,6 +649,9 @@ function Content() {
 
   // Update the OBS link generation to include the session ID and punctuation setting
   const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}${usePunctuation ? '&punctuation=true' : ''}`;
+  
+  // Also create CSS Customizer link with session ID
+  const cssCustomizerLinkWithSession = `/css-customizer?session=${sessionIdRef.current}&source=${sourceLanguage}`;
 
   // Always display raw transcript for real-time viewing, punctuation works behind the scenes
   const displayTranscript = transcript;
@@ -517,18 +661,24 @@ function Content() {
       {!isStarted ? (
         <div className="flex flex-col items-center justify-center gap-8 p-10 text-center min-h-[80vh]">
           <div className="mb-4">
-            <h1 className="text-4xl font-bold text-white text-shadow mb-2">CATT by Catt</h1>
-            <p className="text-xl text-gray-400 text-shadow">Real-time Captioning And Translating Tool</p>
+            <h1 className="text-4xl font-bold text-white text-shadow mb-2">{t.appTitle}</h1>
+            <p className="text-xl text-gray-400 text-shadow">{t.appSubtitle}</p>
           </div>
           
           <div className="w-full max-w-xs bg-gray-900/70 backdrop-blur-sm p-6 rounded-xl shadow-inner border border-gray-800/30">
-            <h2 className="text-xl font-semibold text-white mb-4">Choose Your Language</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">{t.chooseLanguage}</h2>
             <select
               className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md transition-all hover:bg-gray-750 focus:ring-2 focus:ring-gray-600 focus:outline-none mb-4"
               value={sourceLanguage}
-              onChange={(e) => setSourceLanguage(e.target.value)}
+              onChange={(e) => {
+                const selectedLang = e.target.value;
+                setSourceLanguage(selectedLang);
+                
+                // Update UI language based on source language selection
+                updateUILanguageFromSource(selectedLang);
+              }}
             >
-              <option value="">Select Language</option>
+              <option value="">{t.selectLanguage}</option>
               {Object.entries(LANGUAGES).map(([code, name]) => (
                 <option key={code} value={code}>
                   {name}
@@ -537,7 +687,7 @@ function Content() {
             </select>
             
             <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors mb-4">
-              <span>Use GPT-4 Nano for translation</span>
+              <span>{t.useGptTranslation}</span>
               <div className="relative">
                 <input
                   type="checkbox"
@@ -551,7 +701,7 @@ function Content() {
             </label>
 
             <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors mb-4">
-              <span>Long text chunking algorithm (Experimental)</span>
+              <span>{t.longTextChunking}</span>
               <div className="relative">
                 <input
                   type="checkbox"
@@ -571,15 +721,15 @@ function Content() {
                 onClick={startListening}
                 className="px-8 py-4 rounded-full text-lg font-bold bg-gray-800 text-white shadow-lg hover:bg-gray-700 transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-opacity-50"
               >
-                Start Listening
+                {t.startListening}
               </button>
               <div className="mt-4 text-gray-400 flex justify-center items-center">
                 <Link 
-                  to="/css-customizer"
+                  to={cssCustomizerLinkWithSession}
                   target="_blank"
                   className="flex items-center gap-2 hover:text-white transition-colors text-sm"
                 >
-                  <span>🎨 Customize OBS Styling</span>
+                  <span>{t.customizeObsStyling}</span>
                 </Link>
               </div>
             </div>
@@ -589,11 +739,11 @@ function Content() {
         <div className="flex flex-col p-10 min-h-[80vh]">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold text-white text-shadow">Console</h2>
+              <h2 className="text-2xl font-bold text-white text-shadow">{t.console}</h2>
               {usePunctuation && (
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <div className={`w-2 h-2 rounded-full ${isProcessingPunctuation ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></div>
-                  <span>{isProcessingPunctuation ? 'Processing...' : 'Punctuation Active'}</span>
+                  <span>{isProcessingPunctuation ? t.processing : t.punctuationActive}</span>
                 </div>
               )}
             </div>
@@ -601,21 +751,21 @@ function Content() {
               onClick={stopListening}
               className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-800/70 text-white hover:bg-gray-800 transition-colors"
             >
-              Stop &amp; Reset
+              {t.stopAndReset}
             </button>
           </div>
           
           <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
             <div className="p-6 bg-gray-900/60 backdrop-blur-sm rounded-xl shadow-inner border border-gray-800/30">
               <div className="text-sm uppercase text-gray-400 mb-2 font-semibold">
-                Original ({LANGUAGES[sourceLanguage as keyof typeof LANGUAGES]})
+                {t.original} ({LANGUAGES[sourceLanguage as keyof typeof LANGUAGES]})
               </div>
               <p className="text-2xl text-white text-shadow min-h-[3rem]">
-                {displayTranscript || "Listening..."}
+                {displayTranscript || t.listening}
               </p>
               {usePunctuation && leftoverText && (
                 <div className="mt-2 text-sm text-gray-500">
-                  Incomplete: {leftoverText}
+                  {t.incomplete}: {leftoverText}
                 </div>
               )}
             </div>
@@ -634,17 +784,17 @@ function Content() {
               target="_blank"
               className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-900/30 text-gray-400 hover:bg-gray-900/50 hover:text-white transition-all"
             >
-              <span>Open OBS View</span>
+              <span>{t.openObsView}</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
             </Link>
             <Link 
-              to="/css-customizer"
+              to={cssCustomizerLinkWithSession}
               target="_blank"
               className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-900/30 text-gray-400 hover:bg-gray-900/50 hover:text-white transition-all"
             >
-              <span>🎨 Customize OBS</span>
+              <span>{t.customizeObs}</span>
             </Link>
           </div>
         </div>
