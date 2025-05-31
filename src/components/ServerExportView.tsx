@@ -156,8 +156,10 @@ const ServerExportView: React.FC = () => {
   // Render transcript with sliding window if punctuation is enabled
   const renderTranscript = () => {
     if (!transcriptionData.transcript) {
-      return <p className={textShadowClass}>Waiting for transcription...</p>;
+      return <p className={`${textShadowClass} transcript-line transcript-empty`}>Waiting for transcription...</p>;
     }
+    
+    const transcriptClasses = `${textShadowClass} transcript-line transcript-${transcriptionData.sourceLanguage || 'unknown'}`;
     
     if (isPunctuationEnabled) {
       return (
@@ -172,7 +174,7 @@ const ServerExportView: React.FC = () => {
         >
           <p 
             ref={textRef}
-            className={`${textShadowClass} sliding-text`}
+            className={`${transcriptClasses} sliding-text`}
             style={{
               transform: `translateX(${textOffset}px)`,
               transition: isInitialRender ? 'none' : 'transform 0.3s ease-out',
@@ -188,7 +190,7 @@ const ServerExportView: React.FC = () => {
       );
     } else {
       // Normal mode: simple centered text, no sliding, no mask
-      return <p className={textShadowClass} style={{textAlign: 'center', width: '100%'}}>{transcriptionData.transcript}</p>;
+      return <p className={transcriptClasses} style={{textAlign: 'center', width: '100%'}}>{transcriptionData.transcript}</p>;
     }
   };
 
@@ -201,8 +203,15 @@ const ServerExportView: React.FC = () => {
       {/* Translations - with animation */}
       {Object.entries(filteredTranslations).length > 0 && (
         <div className="animate-update" key={animationKey}>
-          {Object.entries(filteredTranslations).map(([lang, translation]) => (
-            <p key={lang} className={textShadowClass}>{translation}</p>
+          {Object.entries(filteredTranslations).map(([lang, translation], index) => (
+            <p 
+              key={lang} 
+              className={`${textShadowClass} translation-line translation-${lang} translation-line-${index + 1}`}
+              data-language={lang}
+              data-line-index={index + 1}
+            >
+              {translation}
+            </p>
           ))}
         </div>
       )}

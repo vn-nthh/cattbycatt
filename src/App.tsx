@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { useEffect, useState, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
 import ServerExportView from "./components/ServerExportView";
+import CSSCustomizer from "./components/CSSCustomizer";
 import { getSessionId } from "./lib/session";
 
 // Define supported languages
@@ -88,6 +89,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/server-export" element={<ServerExportView />} />
+        <Route path="/css-customizer" element={<CSSCustomizer />} />
       </Routes>
     </>
   );
@@ -571,16 +573,13 @@ function Content() {
               >
                 Start Listening
               </button>
-              <div className="mt-4 text-gray-400">
+              <div className="mt-4 text-gray-400 flex justify-center items-center">
                 <Link 
-                  to={obsLinkWithSession}
+                  to="/css-customizer"
                   target="_blank"
-                  className="flex items-center gap-2 hover:text-white transition-colors"
+                  className="flex items-center gap-2 hover:text-white transition-colors text-sm"
                 >
-                  <span>Open OBS View</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
+                  <span>🎨 Customize OBS Styling</span>
                 </Link>
               </div>
             </div>
@@ -629,7 +628,7 @@ function Content() {
             ))}
           </div>
           
-          <div className="mt-8 flex justify-center">
+          <div className="mt-8 flex justify-center gap-4">
             <Link 
               to={obsLinkWithSession}
               target="_blank"
@@ -639,6 +638,13 @@ function Content() {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
+            </Link>
+            <Link 
+              to="/css-customizer"
+              target="_blank"
+              className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-900/30 text-gray-400 hover:bg-gray-900/50 hover:text-white transition-all"
+            >
+              <span>🎨 Customize OBS</span>
             </Link>
           </div>
         </div>
