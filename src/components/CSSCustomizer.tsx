@@ -1308,54 +1308,6 @@ ${generateAnimationKeyframes()}
                 {t.livePreview}
               </h2>
               
-              {/* Debug section - remove this later */}
-              <div className="bg-red-900 border border-red-600 rounded-lg p-3 mb-4 text-sm">
-                <p><strong>Debug Info:</strong></p>
-                <p>Current Source Language: <strong>{sourceLanguage}</strong></p>
-                <p>Current UI Language: <strong>{currentLanguage}</strong></p>
-                <p>Session ID: <strong>{new URLSearchParams(window.location.search).get('session') || 'none'}</strong></p>
-                <p>URL Source Param: <strong>{new URLSearchParams(window.location.search).get('source') || 'none'}</strong></p>
-                <p>SessionStorage Value: <strong>{
-                  (() => {
-                    const sessionId = new URLSearchParams(window.location.search).get('session');
-                    if (!sessionId) return 'no session';
-                    const value = sessionStorage.getItem(`sourceLanguage_${sessionId}`);
-                    console.log('[CSS Customizer] Raw sessionStorage value:', JSON.stringify(value));
-                    return value || 'not found';
-                  })()
-                }</strong></p>
-                <p>All SessionStorage Keys: <strong>{Object.keys(sessionStorage).join(', ') || 'none'}</strong></p>
-                <button 
-                  onClick={() => {
-                    const sessionId = new URLSearchParams(window.location.search).get('session');
-                    console.log('Manual check - Session ID:', sessionId);
-                    if (sessionId) {
-                      const stored = sessionStorage.getItem(`sourceLanguage_${sessionId}`);
-                      console.log('Manual check - Stored source language:', stored);
-                      if (stored && stored !== sourceLanguage) {
-                        setSourceLanguage(stored);
-                      }
-                    }
-                  }}
-                  className="mt-2 px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-xs"
-                >
-                  🔄 Refresh Source Language
-                </button>
-                <button 
-                  onClick={() => {
-                    const sessionId = new URLSearchParams(window.location.search).get('session');
-                    if (sessionId) {
-                      sessionStorage.setItem(`sourceLanguage_${sessionId}`, 'ja');
-                      console.log('Manually set sourceLanguage to ja for session:', sessionId);
-                      setSourceLanguage('ja');
-                    }
-                  }}
-                  className="mt-2 ml-2 px-3 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs"
-                >
-                  🧪 Test Set Japanese
-                </button>
-              </div>
-              
               {!fontsLoaded && (
                 <div className="bg-yellow-900 border border-yellow-600 rounded-lg p-3 mb-4">
                   <p className="text-yellow-200 text-sm">
