@@ -210,8 +210,8 @@ function Content() {
       console.log(`[PUNCTUATION] GPT result: "${punctuatedChunk}"`);
       
       // Parse punctuated text for complete vs incomplete phrases
-      const sentenceEndRegex = /[.!?]/;
-      const sentences = punctuatedChunk.split(/(?<=[.!?])\s+/);
+      const sentenceEndRegex = /[.!?。！？]/;
+      const sentences = punctuatedChunk.split(/(?<=[.!?。！？])\s+/);
       
       let completeText = "";
       let newLeftover = "";
