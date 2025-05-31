@@ -549,7 +549,7 @@ function Content() {
             </label>
 
             <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors mb-4">
-              <span>Real-time punctuation restoration</span>
+              <span>Long text chunking algorithm (Experimental)</span>
               <div className="relative">
                 <input
                   type="checkbox"
