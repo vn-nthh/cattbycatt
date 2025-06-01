@@ -193,7 +193,7 @@ function AppRoutes() {
 
 function MainApp() {
   return (
-    <div className="min-h-screen flex flex-col bg-transparent">
+    <div className="min-h-screen flex flex-col bg-gray-950">
       <main className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-3xl mx-auto">
           <Content />
