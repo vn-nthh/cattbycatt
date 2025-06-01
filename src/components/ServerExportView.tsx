@@ -23,6 +23,7 @@ const ServerExportView: React.FC = () => {
   
   // Sliding window state
   const [windowWidth, setWindowWidth] = useState(0);
+  const [windowHeight, setWindowHeight] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
   const [textOffset, setTextOffset] = useState(0);
@@ -66,6 +67,18 @@ const ServerExportView: React.FC = () => {
     // Use a timeout to ensure the DOM has updated with new text content
     const measureAndPosition = () => {
       const textWidth = textElement.scrollWidth;
+      const textHeight = textElement.scrollHeight;
+      
+      // Get computed styles to calculate proper height including descenders
+      const computedStyle = window.getComputedStyle(textElement);
+      const fontSize = parseFloat(computedStyle.fontSize);
+      const lineHeight = parseFloat(computedStyle.lineHeight) || fontSize * 1.4;
+      
+      // Update container height to fit text with extra padding for descenders
+      // Use the larger of measured height or calculated line height, plus extra padding
+      const calculatedHeight = Math.max(lineHeight, textHeight);
+      const dynamicHeight = Math.max(calculatedHeight + 24, 60); // Extra 24px for descenders and padding
+      setWindowHeight(dynamicHeight);
       
       // Always start text from the middle of the container
       // As text grows, it will naturally extend to the right first
@@ -168,20 +181,24 @@ const ServerExportView: React.FC = () => {
           className="sliding-window-container punctuation-enabled"
           style={{
             width: `${windowWidth}px`,
+            height: `${windowHeight}px`,
             overflow: 'hidden',
             position: 'relative',
+            minHeight: '60px', // Ensure minimum height even before measurement
           }}
         >
           <p 
             ref={textRef}
             className={`${transcriptClasses} sliding-text`}
             style={{
-              transform: `translateX(${textOffset}px)`,
               transition: isInitialRender ? 'none' : 'transform 0.3s ease-out',
               whiteSpace: 'nowrap',
               position: 'absolute',
-              top: 0,
+              top: '50%',
               left: 0,
+              transform: `translateX(${textOffset}px) translateY(-50%)`, // Center vertically and apply horizontal offset
+              lineHeight: '1.4',
+              paddingBottom: '0.25rem', // Extra padding for descenders
             }}
           >
             {transcriptionData.transcript}
