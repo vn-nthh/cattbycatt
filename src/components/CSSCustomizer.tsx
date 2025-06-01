@@ -862,11 +862,11 @@ const CSSCustomizer: React.FC = () => {
   const generateSpacingValues = () => {
     switch (settings.spacing) {
       case 'tight':
-        return { transcriptMargin: '0.5rem', translationMargin: '0.3rem 0' };
+        return { transcriptMargin: '0.2rem', translationMargin: '0.2rem 0 0.3rem 0' };
       case 'loose':
-        return { transcriptMargin: '2rem', translationMargin: '1.5rem 0' };
+        return { transcriptMargin: '1rem', translationMargin: '1rem 0 1.2rem 0' };
       default:
-        return { transcriptMargin: '1rem', translationMargin: '0.8rem 0' };
+        return { transcriptMargin: '0.4rem', translationMargin: '0.4rem 0 0.6rem 0' };
     }
   };
 
@@ -982,8 +982,7 @@ const CSSCustomizer: React.FC = () => {
   color: ${settings.textColor} !important;
   text-align: center !important;
   margin-bottom: ${transcriptMargin} !important;
-  line-height: 1.4 !important;
-  padding-bottom: 0.2rem !important;
+  line-height: 1.3 !important;
   ${transcriptGlow}
   animation: none !important;
   transition: none !important;
@@ -1068,10 +1067,14 @@ ${generateAnimationKeyframes()}
 
 /* Fix descender clipping in sliding window mode */
 .sliding-window-container {
-  padding-bottom: 0.3rem !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+}
+
+/* Compensate for sliding window extra height in punctuation mode */
+.sliding-window-container.punctuation-enabled {
+  margin-bottom: 0.2rem !important;
 }
 
 /* Make sure animations work properly in OBS */
@@ -1324,8 +1327,8 @@ ${generateAnimationKeyframes()}
           </div>
 
           {/* Preview Panel */}
-          <div className="space-y-6">
-            <div className="bg-gray-900 rounded-lg p-6">
+          <div className="space-y-6 lg:sticky lg:top-8 lg:self-start">
+            <div className="bg-gray-900 rounded-lg p-6 sticky top-4">
               <h2 className="text-xl font-semibold mb-4">
                 {t.livePreview}
               </h2>
@@ -1353,7 +1356,7 @@ ${generateAnimationKeyframes()}
                     color: settings.textColor,
                     textAlign: 'center',
                     marginBottom: generateSpacingValues().transcriptMargin,
-                    lineHeight: 1.4,
+                    lineHeight: 1.3,
                     paddingBottom: '0.2rem',
                     textShadow: settings.glowIntensity > 0 
                       ? `0 0 6px ${hexToRgba(settings.glowColor, 0.2 * (settings.glowIntensity / 100))}, 0 0 12px ${hexToRgba(settings.glowColor, 0.15 * (settings.glowIntensity / 100))}, 0 0 18px ${hexToRgba(settings.glowColor, 0.1 * (settings.glowIntensity / 100))}`
