@@ -647,6 +647,9 @@ const CSSCustomizer: React.FC = () => {
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [fontLoadTrigger, setFontLoadTrigger] = useState(0); // Force re-render for font changes
   const [fontsLoaded, setFontsLoaded] = useState(false);
+  // New: Animation state management
+  const [animationState, setAnimationState] = useState<'hidden' | 'visible'>('hidden');
+  const [animationTrigger, setAnimationTrigger] = useState(0);
   const [currentLanguage, setCurrentLanguage] = useState(() => {
     // Detect language from localStorage or default to English
     return localStorage.getItem('language') || 'en';
@@ -682,6 +685,33 @@ const CSSCustomizer: React.FC = () => {
     // Force preview re-render when source language changes
     setFontLoadTrigger(prev => prev + 1);
   }, [sourceLanguage]);
+
+  // New: Animation system using CSS transitions
+  const triggerAnimation = useCallback(() => {
+    // Reset to hidden state first
+    setAnimationState('hidden');
+    setAnimationTrigger(prev => prev + 1);
+    
+    // After a brief moment, show with animation
+    setTimeout(() => {
+      setAnimationState('visible');
+    }, 50); // Small delay to ensure reset is visible
+  }, []);
+
+  // New: Handle animation timing
+  useEffect(() => {
+    // Trigger animation when settings change
+    triggerAnimation();
+    
+    // Set up 3-second interval for animation replay
+    const interval = setInterval(() => {
+      triggerAnimation();
+    }, 3000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [settings, sourceLanguage, triggerAnimation]);
 
   // Listen for language changes from localStorage (set by main app)
   useEffect(() => {
@@ -870,6 +900,67 @@ const CSSCustomizer: React.FC = () => {
     }
   };
 
+  // New: Generate transition-based animation styles
+  const getTransitionStyles = (isVisible: boolean, animationType: string, animationSpeed: number, languageCode: string) => {
+    const baseTransition = `all ${animationSpeed}s ease-out`;
+    
+    // Get stagger delay based on language (matching the real export)
+    const getStaggerDelay = (langCode: string): number => {
+      switch (langCode) {
+        case 'ja': return 0.2;
+        case 'ko': return 0.4;
+        default: return 0; // English or other languages
+      }
+    };
+    
+    const delay = getStaggerDelay(languageCode);
+    const transitionWithDelay = delay > 0 ? `all ${animationSpeed}s ease-out ${delay}s` : baseTransition;
+    
+    if (!isVisible) {
+      // Hidden state - different starting points for each animation type
+      switch (animationType) {
+        case 'slideUp':
+          return {
+            opacity: 0,
+            transform: 'translateY(30px)',
+            transition: transitionWithDelay
+          };
+        case 'slideDown':
+          return {
+            opacity: 0,
+            transform: 'translateY(-30px)', 
+            transition: transitionWithDelay
+          };
+        case 'scaleIn':
+          return {
+            opacity: 0,
+            transform: 'scale(0.8)',
+            transition: transitionWithDelay
+          };
+        case 'none':
+          return {
+            opacity: 1,
+            transform: 'none',
+            transition: 'none'
+          };
+        default: // fadeIn
+          return {
+            opacity: 0,
+            filter: 'blur(1px)',
+            transition: transitionWithDelay
+          };
+      }
+    } else {
+      // Visible state - all animations end at the same place
+      return {
+        opacity: 1,
+        transform: 'none',
+        filter: 'none',
+        transition: transitionWithDelay
+      };
+    }
+  };
+
   const generateAnimationKeyframes = () => {
     const intensity = (settings.glowIntensity / 100) * 1.25; // Scale so 100% = old 125%
     const mainColor = hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1));
@@ -984,7 +1075,12 @@ const CSSCustomizer: React.FC = () => {
   animation: none !important;
   transition: none !important;
   opacity: 1 !important;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+  position: relative !important;
 }
+
+
 
 /* Language-specific transcript fonts (adaptable to any source language) */
 .transcript-line.transcript-en {
@@ -1013,6 +1109,8 @@ const CSSCustomizer: React.FC = () => {
   line-height: 1.3 !important;
   opacity: 0;
   transform: translateY(5px);
+  overflow: visible !important;
+  position: relative !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -1051,51 +1149,12 @@ ${generateAnimationKeyframes()}
   animation-timing-function: ease-out !important;
 }
 
-/* Additional sliding window container styling */
-.sliding-window-container {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: flex-start !important; /* Changed from center to flex-start for proper sliding alignment */
-  position: relative !important;
-}
-
-/* Ensure sliding window container allows proper text positioning */
-.sliding-window-container.punctuation-enabled {
-  /* Use webkit-mask for fade effect - don't override positioning */
-  -webkit-mask: linear-gradient(to right, 
-    transparent 0px,
-    rgba(0, 0, 0, 0.1) 20px,
-    rgba(0, 0, 0, 0.5) 50px,
-    rgba(0, 0, 0, 1) 80px,
-    rgba(0, 0, 0, 1) 100%
-  ) !important;
-  mask: linear-gradient(to right, 
-    transparent 0px,
-    rgba(0, 0, 0, 0.1) 20px,
-    rgba(0, 0, 0, 0.5) 50px,
-    rgba(0, 0, 0, 1) 80px,
-    rgba(0, 0, 0, 1) 100%
-  ) !important;
-}
-
-/* Special handling for sliding window mode - override position and alignment for sliding text */
+/* Remove conflicting animations and overflow settings from sliding text */
 .transcript-line.sliding-text {
-  position: absolute !important;
-  text-align: left !important;
-  white-space: nowrap !important;
   opacity: 1 !important;
-  /* Don't override transforms or transitions - let inline styles handle sliding animation */
-  animation: none !important;
-}
-
-/* Ensure transcript lines don't have translation transforms */
-.transcript-line:not(.sliding-text) {
-  transform: none !important;
-}
-
-/* Compensate for sliding window extra height in punctuation mode */
-.sliding-window-container.punctuation-enabled {
-  margin-bottom: 0.2rem !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  position: absolute !important;
 }
 
 /* Ensure proper stacking and visibility */
@@ -1104,10 +1163,27 @@ ${generateAnimationKeyframes()}
   z-index: 1000 !important;
 }
 
+/* Fix descender clipping in sliding window mode */
+.sliding-window-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Compensate for sliding window extra height in punctuation mode */
+.sliding-window-container.punctuation-enabled {
+  margin-bottom: 0.2rem !important;
+}
+
 /* Make sure animations work properly in OBS */
 .translation-line {
   will-change: opacity, transform !important;
   backface-visibility: hidden !important;
+}
+
+/* Override base CSS universal overflow rule for translation lines */
+.export-view .translation-line {
+  overflow: visible !important;
 }`;
   };
 
@@ -1355,7 +1431,7 @@ ${generateAnimationKeyframes()}
 
           {/* Preview Panel */}
           <div className="space-y-6 lg:sticky lg:top-8 lg:self-start">
-            <div className="bg-gray-900 rounded-lg p-6 sticky top-4">
+            <div className="bg-gray-900 rounded-lg p-6 sticky top-4" style={{ overflow: 'visible' }}>
               <h2 className="text-xl font-semibold mb-4">
                 {t.livePreview}
               </h2>
@@ -1368,9 +1444,9 @@ ${generateAnimationKeyframes()}
                 </div>
               )}
               
-              <div className="bg-black rounded-lg p-8 min-h-[400px] flex flex-col justify-center space-y-4">
+              <div className="bg-black rounded-lg p-8 min-h-[400px] flex flex-col justify-center space-y-4" style={{ overflow: 'visible' }}>
                 <div 
-                  key={`transcript-${fontLoadTrigger}`}
+                  key={`transcript-${animationTrigger}`}
                   className="transcript-line"
                   style={{
                     fontFamily: formatFontFamily(
@@ -1388,36 +1464,54 @@ ${generateAnimationKeyframes()}
                     textShadow: settings.glowIntensity > 0 
                       ? `0 0 ${Math.min(10 * ((settings.glowIntensity / 100) * 1.25), 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * ((settings.glowIntensity / 100) * 1.25), 1))}, 0 0 ${Math.min(20 * ((settings.glowIntensity / 100) * 1.25), 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * ((settings.glowIntensity / 100) * 1.25), 1))}, 0 0 ${Math.min(28 * ((settings.glowIntensity / 100) * 1.25), 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * ((settings.glowIntensity / 100) * 1.25), 1))}`
                       : 'none',
+                    overflowX: 'hidden',
+                    overflowY: 'visible',
+                    position: 'relative',
                   }}
                 >
                   {getPreviewSamples().source}
                 </div>
                 
-                {getPreviewSamples().translations.map((translation, index) => (
-                  <div 
-                    key={`${translation.code}-${fontLoadTrigger}`}
-                    className={`translation-line translation-${translation.code}`}
-                    style={{
-                      fontFamily: formatFontFamily(
-                        translation.code === 'ja' ? settings.japaneseFont :
-                        translation.code === 'ko' ? settings.koreanFont :
-                        settings.transcriptFont
-                      ),
-                      fontSize: `${settings.translationSize}rem`,
-                      fontWeight: 500,
-                      color: settings.textColor,
-                      textAlign: 'center',
-                      margin: generateSpacingValues().translationMargin,
-                      lineHeight: 1.3,
-                      opacity: 1,
-                      textShadow: settings.glowIntensity > 0 
-                        ? `0 0 ${Math.min(10 * ((settings.glowIntensity / 100) * 1.25), 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * ((settings.glowIntensity / 100) * 1.25), 1))}, 0 0 ${Math.min(20 * ((settings.glowIntensity / 100) * 1.25), 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * ((settings.glowIntensity / 100) * 1.25), 1))}, 0 0 ${Math.min(28 * ((settings.glowIntensity / 100) * 1.25), 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * ((settings.glowIntensity / 100) * 1.25), 1))}`
-                        : 'none',
-                    }}
-                  >
-                    {translation.text}
-                  </div>
-                ))}
+                {getPreviewSamples().translations.map((translation, index) => {
+                  const transitionStyles = getTransitionStyles(
+                    animationState === 'visible',
+                    settings.animationType,
+                    settings.animationSpeed,
+                    translation.code
+                  );
+                  
+                  const intensity = (settings.glowIntensity / 100) * 1.25; // Scale so 100% = old 125%
+                  const translationGlow = settings.glowIntensity > 0
+                    ? `0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}, 0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}, 0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))}`
+                    : 'none';
+
+                  return (
+                    <div 
+                      key={`${translation.code}-${animationTrigger}`}
+                      className={`translation-line translation-${translation.code}`}
+                      style={{
+                        fontFamily: formatFontFamily(
+                          translation.code === 'ja' ? settings.japaneseFont :
+                          translation.code === 'ko' ? settings.koreanFont :
+                          settings.transcriptFont
+                        ),
+                        fontSize: `${settings.translationSize}rem`,
+                        fontWeight: 500,
+                        color: settings.textColor,
+                        textAlign: 'center',
+                        margin: generateSpacingValues().translationMargin,
+                        lineHeight: 1.3,
+                        textShadow: translationGlow,
+                        overflow: 'visible',
+                        position: 'relative',
+                        // Apply transition-based animation styles
+                        ...transitionStyles,
+                      }}
+                    >
+                      {translation.text}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
