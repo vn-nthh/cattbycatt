@@ -936,19 +936,16 @@ const CSSCustomizer: React.FC = () => {
 @keyframes fadeInGlow {
   0% {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
     filter: blur(1px);
     text-shadow: 0 0 4px ${hexToRgba(settings.glowColor, 0.2 * intensity)};
   }
   50% {
     opacity: 0.8;
-    transform: translateY(3px) scale(0.99);
     filter: blur(0.5px);
     text-shadow: 0 0 6px ${hexToRgba(settings.glowColor, 0.3 * intensity)};
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
     filter: blur(0);
     text-shadow: 0 0 8px ${mainColor}, 0 0 15px ${midColor}, 0 0 20px ${outerColor};
   }
@@ -1026,7 +1023,7 @@ const CSSCustomizer: React.FC = () => {
   font-family: ${settings.transcriptFont} !important;
   color: ${settings.textColor} !important;
   ${translationGlow}
-  animation: ${animationName} ${settings.animationSpeed}s ease-out forwards !important;
+  animation: ${animationName} ${settings.animationSpeed}s ease-out${settings.animationType === 'none' ? '' : ''} forwards !important;
 }
 
 /* Japanese translation text (adaptable - works when Japanese is a translation) */
@@ -1034,7 +1031,7 @@ const CSSCustomizer: React.FC = () => {
   font-family: ${settings.japaneseFont} !important;
   color: ${settings.textColor} !important;
   ${translationGlow}
-  animation: ${animationName} ${settings.animationSpeed}s ease-out 0.2s forwards !important;
+  animation: ${animationName} ${settings.animationSpeed}s ease-out${settings.animationType === 'none' ? '' : ' 0.2s'} forwards !important;
 }
 
 /* Korean translation text (adaptable - works when Korean is a translation) */
@@ -1042,7 +1039,7 @@ const CSSCustomizer: React.FC = () => {
   font-family: ${settings.koreanFont} !important;
   color: ${settings.textColor} !important;
   ${translationGlow}
-  animation: ${animationName} ${settings.animationSpeed}s ease-out 0.4s forwards !important;
+  animation: ${animationName} ${settings.animationSpeed}s ease-out${settings.animationType === 'none' ? '' : ' 0.4s'} forwards !important;
 }
 
 ${generateAnimationKeyframes()}
