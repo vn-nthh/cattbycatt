@@ -34,8 +34,8 @@ const DEFAULT_SETTINGS: CustomizationSettings = {
   koreanFont: "'Noto Sans KR', sans-serif",
   textColor: '#ffffff',
   glowColor: '#2196F3',
-  glowIntensity: 40,
-  animationType: 'fadeIn',
+  glowIntensity: 50,
+  animationType: 'none',
   animationSpeed: 0.4,
   spacing: 'normal',
   transcriptSize: 3,
@@ -871,10 +871,10 @@ const CSSCustomizer: React.FC = () => {
   };
 
   const generateAnimationKeyframes = () => {
-    const intensity = settings.glowIntensity / 100;
-    const mainColor = hexToRgba(settings.glowColor, 0.4 * intensity);
-    const midColor = hexToRgba(settings.glowColor, 0.25 * intensity);
-    const outerColor = hexToRgba(settings.glowColor, 0.15 * intensity);
+    const intensity = (settings.glowIntensity / 100) * 1.25; // Scale so 100% = old 125%
+    const mainColor = hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1));
+    const midColor = hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1));
+    const outerColor = hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1));
 
     switch (settings.animationType) {
       case 'slideUp':
@@ -883,12 +883,12 @@ const CSSCustomizer: React.FC = () => {
   0% {
     opacity: 0;
     transform: translateY(30px);
-    text-shadow: 0 0 5px ${hexToRgba(settings.glowColor, 0.2 * intensity)};
+    text-shadow: 0 0 5px ${hexToRgba(settings.glowColor, Math.min(0.3 * intensity, 1))};
   }
   100% {
     opacity: 1;
     transform: translateY(0);
-    text-shadow: 0 0 8px ${mainColor}, 0 0 15px ${midColor}, 0 0 20px ${outerColor};
+    text-shadow: 0 0 ${Math.min(10 * intensity, 32)}px ${mainColor}, 0 0 ${Math.min(20 * intensity, 50)}px ${midColor}, 0 0 ${Math.min(28 * intensity, 65)}px ${outerColor};
   }
 }`;
 
@@ -898,12 +898,12 @@ const CSSCustomizer: React.FC = () => {
   0% {
     opacity: 0;
     transform: translateY(-30px);
-    text-shadow: 0 0 5px ${hexToRgba(settings.glowColor, 0.2 * intensity)};
+    text-shadow: 0 0 5px ${hexToRgba(settings.glowColor, Math.min(0.3 * intensity, 1))};
   }
   100% {
     opacity: 1;
     transform: translateY(0);
-    text-shadow: 0 0 8px ${mainColor}, 0 0 15px ${midColor}, 0 0 20px ${outerColor};
+    text-shadow: 0 0 ${Math.min(10 * intensity, 32)}px ${mainColor}, 0 0 ${Math.min(20 * intensity, 50)}px ${midColor}, 0 0 ${Math.min(28 * intensity, 65)}px ${outerColor};
   }
 }`;
 
@@ -913,12 +913,12 @@ const CSSCustomizer: React.FC = () => {
   0% {
     opacity: 0;
     transform: scale(0.8);
-    text-shadow: 0 0 5px ${hexToRgba(settings.glowColor, 0.2 * intensity)};
+    text-shadow: 0 0 5px ${hexToRgba(settings.glowColor, Math.min(0.3 * intensity, 1))};
   }
   100% {
     opacity: 1;
     transform: scale(1);
-    text-shadow: 0 0 8px ${mainColor}, 0 0 15px ${midColor}, 0 0 20px ${outerColor};
+    text-shadow: 0 0 ${Math.min(10 * intensity, 32)}px ${mainColor}, 0 0 ${Math.min(20 * intensity, 50)}px ${midColor}, 0 0 ${Math.min(28 * intensity, 65)}px ${outerColor};
   }
 }`;
 
@@ -927,7 +927,7 @@ const CSSCustomizer: React.FC = () => {
 @keyframes noAnimation {
   0%, 100% {
     opacity: 1;
-    text-shadow: 0 0 8px ${mainColor}, 0 0 15px ${midColor}, 0 0 20px ${outerColor};
+    text-shadow: 0 0 ${Math.min(10 * intensity, 32)}px ${mainColor}, 0 0 ${Math.min(20 * intensity, 50)}px ${midColor}, 0 0 ${Math.min(28 * intensity, 65)}px ${outerColor};
   }
 }`;
 
@@ -937,17 +937,17 @@ const CSSCustomizer: React.FC = () => {
   0% {
     opacity: 0;
     filter: blur(1px);
-    text-shadow: 0 0 4px ${hexToRgba(settings.glowColor, 0.2 * intensity)};
+    text-shadow: 0 0 4px ${hexToRgba(settings.glowColor, Math.min(0.3 * intensity, 1))};
   }
   50% {
     opacity: 0.8;
     filter: blur(0.5px);
-    text-shadow: 0 0 6px ${hexToRgba(settings.glowColor, 0.3 * intensity)};
+    text-shadow: 0 0 ${Math.min(8 * intensity, 30)}px ${hexToRgba(settings.glowColor, Math.min(0.5 * intensity, 1))};
   }
   100% {
     opacity: 1;
     filter: blur(0);
-    text-shadow: 0 0 8px ${mainColor}, 0 0 15px ${midColor}, 0 0 20px ${outerColor};
+    text-shadow: 0 0 ${Math.min(10 * intensity, 32)}px ${mainColor}, 0 0 ${Math.min(20 * intensity, 50)}px ${midColor}, 0 0 ${Math.min(28 * intensity, 65)}px ${outerColor};
   }
 }`;
     }
@@ -955,13 +955,13 @@ const CSSCustomizer: React.FC = () => {
 
   const generateCSS = () => {
     const { transcriptMargin, translationMargin } = generateSpacingValues();
-    const intensity = settings.glowIntensity / 100;
+    const intensity = (settings.glowIntensity / 100) * 1.25; // Scale so 100% = old 125%
     const transcriptGlow = settings.glowIntensity > 0 
-      ? `text-shadow: 0 0 5px ${hexToRgba(settings.glowColor, 0.15 * intensity)}, 0 0 10px ${hexToRgba(settings.glowColor, 0.1 * intensity)} !important;`
+      ? `text-shadow: 0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}, 0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}, 0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))} !important;`
       : 'text-shadow: none !important;';
     
     const translationGlow = settings.glowIntensity > 0
-      ? `text-shadow: 0 0 8px ${hexToRgba(settings.glowColor, 0.4 * intensity)}, 0 0 15px ${hexToRgba(settings.glowColor, 0.25 * intensity)}, 0 0 20px ${hexToRgba(settings.glowColor, 0.15 * intensity)} !important;`
+      ? `text-shadow: 0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}, 0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}, 0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))} !important;`
       : 'text-shadow: none !important;';
 
     const animationName = settings.animationType === 'slideUp' ? 'slideUpGlow' :
@@ -1051,27 +1051,57 @@ ${generateAnimationKeyframes()}
   animation-timing-function: ease-out !important;
 }
 
-/* Remove conflicting animations from sliding text */
+/* Additional sliding window container styling */
+.sliding-window-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important; /* Changed from center to flex-start for proper sliding alignment */
+  position: relative !important;
+}
+
+/* Ensure sliding window container allows proper text positioning */
+.sliding-window-container.punctuation-enabled {
+  /* Use webkit-mask for fade effect - don't override positioning */
+  -webkit-mask: linear-gradient(to right, 
+    transparent 0px,
+    rgba(0, 0, 0, 0.1) 20px,
+    rgba(0, 0, 0, 0.5) 50px,
+    rgba(0, 0, 0, 1) 80px,
+    rgba(0, 0, 0, 1) 100%
+  ) !important;
+  mask: linear-gradient(to right, 
+    transparent 0px,
+    rgba(0, 0, 0, 0.1) 20px,
+    rgba(0, 0, 0, 0.5) 50px,
+    rgba(0, 0, 0, 1) 80px,
+    rgba(0, 0, 0, 1) 100%
+  ) !important;
+}
+
+/* Special handling for sliding window mode - override position and alignment for sliding text */
 .transcript-line.sliding-text {
+  position: absolute !important;
+  text-align: left !important;
+  white-space: nowrap !important;
   opacity: 1 !important;
+  /* Don't override transforms or transitions - let inline styles handle sliding animation */
+  animation: none !important;
+}
+
+/* Ensure transcript lines don't have translation transforms */
+.transcript-line:not(.sliding-text) {
+  transform: none !important;
+}
+
+/* Compensate for sliding window extra height in punctuation mode */
+.sliding-window-container.punctuation-enabled {
+  margin-bottom: 0.2rem !important;
 }
 
 /* Ensure proper stacking and visibility */
 .export-view {
   position: relative !important;
   z-index: 1000 !important;
-}
-
-/* Fix descender clipping in sliding window mode */
-.sliding-window-container {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-/* Compensate for sliding window extra height in punctuation mode */
-.sliding-window-container.punctuation-enabled {
-  margin-bottom: 0.2rem !important;
 }
 
 /* Make sure animations work properly in OBS */
@@ -1356,7 +1386,7 @@ ${generateAnimationKeyframes()}
                     lineHeight: 1.3,
                     paddingBottom: '0.2rem',
                     textShadow: settings.glowIntensity > 0 
-                      ? `0 0 6px ${hexToRgba(settings.glowColor, 0.2 * (settings.glowIntensity / 100))}, 0 0 12px ${hexToRgba(settings.glowColor, 0.15 * (settings.glowIntensity / 100))}, 0 0 18px ${hexToRgba(settings.glowColor, 0.1 * (settings.glowIntensity / 100))}`
+                      ? `0 0 ${Math.min(10 * ((settings.glowIntensity / 100) * 1.25), 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * ((settings.glowIntensity / 100) * 1.25), 1))}, 0 0 ${Math.min(20 * ((settings.glowIntensity / 100) * 1.25), 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * ((settings.glowIntensity / 100) * 1.25), 1))}, 0 0 ${Math.min(28 * ((settings.glowIntensity / 100) * 1.25), 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * ((settings.glowIntensity / 100) * 1.25), 1))}`
                       : 'none',
                   }}
                 >
@@ -1381,7 +1411,7 @@ ${generateAnimationKeyframes()}
                       lineHeight: 1.3,
                       opacity: 1,
                       textShadow: settings.glowIntensity > 0 
-                        ? `0 0 8px ${hexToRgba(settings.glowColor, 0.25 * (settings.glowIntensity / 100))}, 0 0 16px ${hexToRgba(settings.glowColor, 0.2 * (settings.glowIntensity / 100))}, 0 0 24px ${hexToRgba(settings.glowColor, 0.15 * (settings.glowIntensity / 100))}, 0 0 32px ${hexToRgba(settings.glowColor, 0.1 * (settings.glowIntensity / 100))}`
+                        ? `0 0 ${Math.min(10 * ((settings.glowIntensity / 100) * 1.25), 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * ((settings.glowIntensity / 100) * 1.25), 1))}, 0 0 ${Math.min(20 * ((settings.glowIntensity / 100) * 1.25), 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * ((settings.glowIntensity / 100) * 1.25), 1))}, 0 0 ${Math.min(28 * ((settings.glowIntensity / 100) * 1.25), 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * ((settings.glowIntensity / 100) * 1.25), 1))}`
                         : 'none',
                     }}
                   >
