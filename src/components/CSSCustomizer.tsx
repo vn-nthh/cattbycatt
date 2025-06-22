@@ -38,7 +38,7 @@ const DEFAULT_SETTINGS: CustomizationSettings = {
   animationType: 'none',
   animationSpeed: 0.4,
   spacing: 'normal',
-  transcriptSize: 3,
+  transcriptSize: 2.5,
   translationSize: 2.5,
 };
 
@@ -892,11 +892,11 @@ const CSSCustomizer: React.FC = () => {
   const generateSpacingValues = () => {
     switch (settings.spacing) {
       case 'tight':
-        return { transcriptMargin: '0.2rem', translationMargin: '0.2rem 0 0.3rem 0' };
+        return { transcriptMargin: '0.25rem', translationMargin: '0.25rem 0' };
       case 'loose':
-        return { transcriptMargin: '1rem', translationMargin: '1rem 0 1.2rem 0' };
+        return { transcriptMargin: '1rem', translationMargin: '1rem 0' };
       default:
-        return { transcriptMargin: '0.4rem', translationMargin: '0.4rem 0 0.6rem 0' };
+        return { transcriptMargin: '0.5rem', translationMargin: '0.5rem 0' };
     }
   };
 
@@ -1069,7 +1069,7 @@ const CSSCustomizer: React.FC = () => {
   font-weight: 600 !important;
   color: ${settings.textColor} !important;
   text-align: center !important;
-  margin-bottom: ${transcriptMargin} !important;
+  margin: 0 0 ${transcriptMargin} 0 !important;
   line-height: 1.3 !important;
   ${transcriptGlow}
   animation: none !important;
@@ -1168,11 +1168,12 @@ ${generateAnimationKeyframes()}
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
 }
 
 /* Compensate for sliding window extra height in punctuation mode */
 .sliding-window-container.punctuation-enabled {
-  margin-bottom: 0.2rem !important;
 }
 
 /* Make sure animations work properly in OBS */
@@ -1458,7 +1459,7 @@ ${generateAnimationKeyframes()}
                     fontWeight: 600,
                     color: settings.textColor,
                     textAlign: 'center',
-                    marginBottom: generateSpacingValues().transcriptMargin,
+                    margin: `0 0 ${generateSpacingValues().transcriptMargin} 0`,
                     lineHeight: 1.3,
                     paddingBottom: '0.2rem',
                     textShadow: settings.glowIntensity > 0 

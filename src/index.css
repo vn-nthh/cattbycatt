@@ -141,11 +141,20 @@ body {
 
 /* Sliding window container styles */
 .sliding-window-container {
-  margin: 0.3em 0;
   height: calc(2.5em * 1.3); /* Match font-size * line-height of regular text */
   display: flex;
   align-items: center;
   position: relative;
+}
+
+/* Remove margin from sliding text to prevent double spacing */
+.sliding-window-container .sliding-text {
+  margin: 0 !important;
+}
+
+/* Ensure consistent spacing for transcript lines */
+.export-view .transcript-line {
+  margin: 0.3em 0 0 0 !important;
 }
 
 /* Only apply the fade/mask when punctuation is enabled */

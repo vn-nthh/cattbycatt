@@ -80,19 +80,16 @@ const ServerExportView: React.FC = () => {
       const dynamicHeight = Math.max(calculatedHeight + 24, 60); // Extra 24px for descenders and padding
       setWindowHeight(dynamicHeight);
       
-      // Always start text from the middle of the container
-      // As text grows, it will naturally extend to the right first
-      // When it exceeds container width, we slide it left to keep newest text visible
-      const middleStart = containerWidth / 2;
+      // Text should stay centered until it touches the bounding box
+      // Only then should it start sliding to keep newest content visible
       
       if (textWidth <= containerWidth) {
-        // Text fits entirely - keep it starting from middle
-        setTextOffset(middleStart - (textWidth / 2));
+        // Text fits entirely - keep it centered
+        setTextOffset((containerWidth - textWidth) / 2);
       } else {
-        // Text is longer than container - slide left to show newest content
-        // Keep the rightmost part visible, which means the newest text
-        const overflow = textWidth - containerWidth;
-        setTextOffset(middleStart - textWidth + (containerWidth / 2));
+        // Text is longer than container - slide to show the rightmost (newest) part
+        // Position so the right edge of text aligns with right edge of container
+        setTextOffset(containerWidth - textWidth);
       }
       
       // After first positioning, enable transitions
@@ -182,7 +179,8 @@ const ServerExportView: React.FC = () => {
           style={{
             width: `${windowWidth}px`,
             height: `${windowHeight}px`,
-            overflow: 'hidden',
+            overflowX: 'hidden',
+            overflowY: 'visible',
             position: 'relative',
             minHeight: '60px', // Ensure minimum height even before measurement
           }}
@@ -198,7 +196,6 @@ const ServerExportView: React.FC = () => {
               left: 0,
               transform: `translateX(${textOffset}px) translateY(-50%)`, // Center vertically and apply horizontal offset
               lineHeight: '1.4',
-              paddingBottom: '0.25rem', // Extra padding for descenders
             }}
           >
             {transcriptionData.transcript}
