@@ -249,7 +249,9 @@ function Content() {
   // Refs for punctuation processing
   const punctuationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentTranscriptRef = useRef<string>("");
-
+  const isSpeakingRef = useRef<boolean>(false);
+  const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Local state for transcript and translations
   const [transcript, setTranscript] = useState<string>("");
   const [punctuatedTranscript, setPunctuatedTranscript] = useState<string>("");
@@ -467,13 +469,14 @@ function Content() {
         console.log(`[INTERVAL] Triggered at ${timestamp}`);
         console.log(`[INTERVAL] Current text: "${currentText}" (${currentText.length} chars)`);
         console.log(`[INTERVAL] Last processed: "${lastProcessedText}" (${lastProcessedText.length} chars)`);
+        console.log(`[INTERVAL] Speaker active: ${isSpeakingRef.current}`);
         console.log(`[INTERVAL] Text changed: ${currentText !== lastProcessedText}`);
         
-        if (currentText && currentText !== lastProcessedText) {
+        if (isSpeakingRef.current && currentText && currentText !== lastProcessedText) {
           console.log(`[INTERVAL] Calling processPunctuationChunk`);
           processPunctuationChunk(currentText);
         } else {
-          console.log(`[INTERVAL] Skipping - no new text`);
+          console.log(`[INTERVAL] Skipping - no new text or speaker inactive`);
         }
       }, 2000); // Process every 2 seconds
       
@@ -528,6 +531,16 @@ function Content() {
         const transcript = event.results[i][0].transcript;
         
         if (event.results[i].isFinal) {
+          // Set a timeout to mark speaking as false after a delay
+          // Clear any existing timeout first
+          if (speakingTimeoutRef.current) {
+            clearTimeout(speakingTimeoutRef.current);
+          }
+          speakingTimeoutRef.current = setTimeout(() => {
+            isSpeakingRef.current = false;
+            speakingTimeoutRef.current = null;
+          }, 1000); // 1 second delay before marking as not speaking
+          
           finalTranscript += transcript;
           
           // Update transcript with only the latest final result
@@ -564,6 +577,13 @@ function Content() {
             }
           }
         } else {
+          // Interim result implies the speaker is currently speaking
+          // Clear any existing timeout since we're still speaking
+          if (speakingTimeoutRef.current) {
+            clearTimeout(speakingTimeoutRef.current);
+            speakingTimeoutRef.current = null;
+          }
+          isSpeakingRef.current = true;
           interimTranscript += transcript;
           // Display interim results
           setTranscript(interimTranscript);
@@ -630,6 +650,11 @@ function Content() {
       } catch (error) {
         console.error("Error stopping recognition:", error);
       }
+    }
+    isSpeakingRef.current = false;
+    if (speakingTimeoutRef.current) {
+      clearTimeout(speakingTimeoutRef.current);
+      speakingTimeoutRef.current = null;
     }
     
     // Clean up punctuation processing
