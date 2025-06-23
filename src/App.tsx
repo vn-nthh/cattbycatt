@@ -216,6 +216,7 @@ function Content() {
   const [leftoverText, setLeftoverText] = useState("");
   const [leftoverStartTime, setLeftoverStartTime] = useState<number | null>(null);
   const [isProcessingPunctuation, setIsProcessingPunctuation] = useState(false);
+  const [previousChunk, setPreviousChunk] = useState("");
 
   // UI language state to trigger re-renders when changed
   const [uiLanguage, setUiLanguage] = useState(() => {
@@ -409,6 +410,7 @@ function Content() {
                 sourceLanguage,
                 targetLanguage: targetLang,
                 useGpt,
+                context: previousChunk,
               }).then(translation => ({ lang: targetLang, translation }))
             )
           ).then(translationsResult => {
@@ -423,6 +425,7 @@ function Content() {
               {}
             );
             setTranslations(newTranslations); // Replace translations completely
+            setPreviousChunk(completeText.trim());
           }).catch(error => {
             console.error("Translation error:", error);
           });
@@ -497,6 +500,7 @@ function Content() {
       setLeftoverStartTime(null);
       setPunctuatedTranscript("");
       setTranslations({}); // Clear translations when disabling punctuation
+      setPreviousChunk("");
       if (punctuationIntervalRef.current) {
         clearInterval(punctuationIntervalRef.current);
       }
@@ -669,6 +673,7 @@ function Content() {
     setLastProcessedText("");
     setLeftoverText("");
     setLeftoverStartTime(null);
+    setPreviousChunk("");
     currentTranscriptRef.current = "";
   };
 
@@ -717,7 +722,13 @@ function Content() {
                 <input
                   type="checkbox"
                   checked={useGpt}
-                  onChange={(e) => setUseGpt(e.target.checked)}
+                  onChange={(e) => {
+                    setUseGpt(e.target.checked);
+                    // If GPT is being disabled, also disable chunking
+                    if (!e.target.checked) {
+                      setUsePunctuation(false);
+                    }
+                  }}
                   className="sr-only"
                 />
                 <div className={`w-12 h-6 rounded-full ${useGpt ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
@@ -725,17 +736,18 @@ function Content() {
               </div>
             </label>
 
-            <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors mb-4">
-              <span>{t.longTextChunking}</span>
+            <label className={`flex items-center justify-between w-full p-3 rounded-lg ${useGpt ? 'bg-gray-800/50 hover:bg-gray-800/70' : 'bg-gray-800/20 cursor-not-allowed'} text-white transition-colors mb-4`}>
+              <span className={!useGpt ? 'text-gray-500' : ''}>{t.longTextChunking}</span>
               <div className="relative">
                 <input
                   type="checkbox"
                   checked={usePunctuation}
                   onChange={(e) => setUsePunctuation(e.target.checked)}
+                  disabled={!useGpt}
                   className="sr-only"
                 />
-                <div className={`w-12 h-6 rounded-full ${usePunctuation ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
-                <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${usePunctuation ? 'translate-x-6' : ''}`}></div>
+                <div className={`w-12 h-6 rounded-full ${usePunctuation && useGpt ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
+                <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${usePunctuation && useGpt ? 'translate-x-6' : ''}`}></div>
               </div>
             </label>
           </div>

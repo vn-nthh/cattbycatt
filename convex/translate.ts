@@ -80,11 +80,16 @@ export const translateText = action({
     sourceLanguage: v.string(),
     targetLanguage: v.string(),
     useGpt: v.boolean(),
+    context: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (args.useGpt) {
       try {
-        const systemPrompt = `You are a professional translator. Translate the following text from ${LANGUAGES[args.sourceLanguage]} to ${LANGUAGES[args.targetLanguage]}. Maintain the original meaning and nuance, but make it sound natural in the target language. Return only the translated text with no explanations or additional content.`;
+        const systemPrompt = `You are a professional translator. Translate the following text from ${LANGUAGES[args.sourceLanguage]} to ${LANGUAGES[args.targetLanguage]}. ${
+          args.context 
+            ? `Consider this previous context for better translation: "${args.context}"\n\nNow translate the following text, maintaining consistency with the context:` 
+            : 'Maintain the original meaning and nuance, but make it sound natural in the target language.'
+        } Return only the translated text with no explanations or additional content.`;
         
         const response = await openai.chat.completions.create({
           model: "gpt-4.1-nano",
