@@ -73,7 +73,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     stopAndReset: "Stop & Reset",
     listening: "Listening...",
     original: "Original",
-    openObsView: "Open OBS View",
+    openObsView: "Copy OBS Link",
     customizeObs: "🎨 Customize OBS"
   },
   
@@ -94,7 +94,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     punctuationActive: "句読点処理が有効",
     incomplete: "未完了",
     original: "原文",
-    openObsView: "OBSビューを開く",
+    openObsView: "OBSリンクをコピー",
     customizeObs: "🎨 OBSをカスタマイズ"
   },
   
@@ -115,7 +115,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     punctuationActive: "구두점 처리 활성화",
     incomplete: "미완료",
     original: "원본",
-    openObsView: "OBS 보기 열기",
+    openObsView: "OBS 링크 복사",
     customizeObs: "🎨 OBS 사용자 지정"
   }
 };
@@ -351,11 +351,30 @@ function Content() {
               throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB. Please speak for shorter periods.`);
             }
             
+            // GROQ-DEBUG-START
+            console.time('⏱️ GROQ-REQUEST-TIME');
+            console.log('🚀 Sending request to Groq API:', {
+              language: sourceLanguage,
+              sessionId: sessionIdRef.current,
+              audioSize: wavBuffer.byteLength
+            });
+            // GROQ-DEBUG-END
+
             const result = await transcribeWithGroq({
               audioBlob: wavBuffer, // Pass ArrayBuffer directly, not Uint8Array
               language: sourceLanguage,
               sessionId: sessionIdRef.current,
             });
+
+            // GROQ-DEBUG-START
+            console.timeEnd('⏱️ GROQ-REQUEST-TIME');
+            console.log('✅ Groq API response:', {
+              success: !!result,
+              hasText: !!result?.text.trim(),
+              textLength: result?.text.length || 0,
+              firstChars: result?.text.slice(0, 30) + '...',
+            });
+            // GROQ-DEBUG-END
             
             if (result.text.trim()) {
               setTranscript(result.text);
@@ -777,16 +796,55 @@ function Content() {
           </div>
           
           <div className="mt-8 flex justify-center gap-4">
-            <Link 
-              to={obsLinkWithSession}
-              target="_blank"
+            <button 
+              onClick={() => {
+                const baseUrl = window.location.origin;
+                const fullUrl = `${baseUrl}${obsLinkWithSession}`;
+
+                navigator.clipboard.writeText(fullUrl)
+                  .then(() => {
+                    // Show subtle indication that link was copied
+                    const copyIndicator = document.createElement('div');
+                    copyIndicator.textContent = 'Link copied!';
+                    copyIndicator.style.position = 'fixed';
+                    copyIndicator.style.bottom = '20px';
+                    copyIndicator.style.left = '50%';
+                    copyIndicator.style.transform = 'translateX(-50%)';
+                    copyIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                    copyIndicator.style.color = 'white';
+                    copyIndicator.style.padding = '8px 16px';
+                    copyIndicator.style.borderRadius = '4px';
+                    copyIndicator.style.zIndex = '9999';
+                    copyIndicator.style.opacity = '0';
+                    copyIndicator.style.transition = 'opacity 0.3s ease-in-out';
+
+                    document.body.appendChild(copyIndicator);
+
+                    // Fade in
+                    setTimeout(() => {
+                      copyIndicator.style.opacity = '1';
+                    }, 10);
+
+                    // Remove after animation
+                    setTimeout(() => {
+                      copyIndicator.style.opacity = '0';
+                      setTimeout(() => {
+                        document.body.removeChild(copyIndicator);
+                      }, 300);
+                    }, 2000);
+                  })
+                  .catch(err => {
+                    console.error('Could not copy link: ', err);
+                  });
+              }}
               className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-900/30 text-gray-400 hover:bg-gray-900/50 hover:text-white transition-all"
             >
               <span>{t.openObsView}</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
               </svg>
-            </Link>
+            </button>
             <Link 
               to={cssCustomizerLinkWithSession}
               target="_blank"
