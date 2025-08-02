@@ -318,6 +318,7 @@ function Content() {
         redemptionFrames: 8,
         frameSamples: 1536,
         minSpeechFrames: 4,
+        minSilenceFrames: 10,
         onSpeechStart: () => {
           console.log('[VAD] Speech started');
           setVadStatus('speaking');
