@@ -6,6 +6,20 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react
 import ServerExportView from "./components/ServerExportView";
 import CSSCustomizer from "./components/CSSCustomizer";
 import { getSessionId } from "./lib/session";
+import { MicVAD } from "@ricky0123/vad-web";
+
+// Suppress ONNX Runtime warnings about unused initializers
+if (typeof window !== 'undefined') {
+  const originalConsoleWarn = console.warn;
+  console.warn = (...args) => {
+    // Filter out ONNX Runtime warnings about unused initializers
+    const message = args.join(' ');
+    if (message.includes('onnxruntime') && message.includes('Removing initializer') && message.includes('It is not used by any node')) {
+      return; // Suppress this specific warning
+    }
+    originalConsoleWarn(...args);
+  };
+}
 
 // Define supported languages
 const LANGUAGES = {
@@ -26,7 +40,7 @@ interface MainAppTranslations {
   
   // Settings
   useGptTranslation: string;
-  longTextChunking: string;
+  useAdvancedAsr: string;
   
   // Actions
   startListening: string;
@@ -36,9 +50,6 @@ interface MainAppTranslations {
   console: string;
   stopAndReset: string;
   listening: string;
-  processing: string;
-  punctuationActive: string;
-  incomplete: string;
   
   // Language labels
   original: string;
@@ -55,15 +66,12 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     chooseLanguage: "Choose Your Language",
     selectLanguage: "Select Language",
     useGptTranslation: "Use GPT-4 Nano for translation",
-    longTextChunking: "Long text chunking algorithm (Experimental)",
+    useAdvancedAsr: "Use Advanced ASR",
     startListening: "Start Listening",
     customizeObsStyling: "🎨 Customize OBS Styling",
     console: "Console",
     stopAndReset: "Stop & Reset",
     listening: "Listening...",
-    processing: "Processing...",
-    punctuationActive: "Punctuation Active",
-    incomplete: "Incomplete",
     original: "Original",
     openObsView: "Open OBS View",
     customizeObs: "🎨 Customize OBS"
@@ -76,6 +84,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     selectLanguage: "言語を選択",
     useGptTranslation: "翻訳にGPT-4 Nanoを使用",
     longTextChunking: "長文チャンク化アルゴリズム（実験的）",
+    useAdvancedAsr: "高度なASRを使用",
     startListening: "聞き取り開始",
     customizeObsStyling: "🎨 OBSスタイルをカスタマイズ",
     console: "コンソール",
@@ -96,6 +105,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     selectLanguage: "언어 선택",
     useGptTranslation: "번역에 GPT-4 Nano 사용",
     longTextChunking: "긴 텍스트 청킹 알고리즘 (실험적)",
+    useAdvancedAsr: "고급 ASR 사용",
     startListening: "듣기 시작",
     customizeObsStyling: "🎨 OBS 스타일 사용자 지정",
     console: "콘솔",
@@ -209,14 +219,14 @@ function Content() {
   const [isStarted, setIsStarted] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [useGpt, setUseGpt] = useState(false);
+  const [useAdvancedAsr, setUseAdvancedAsr] = useState(false);
 
-  // Punctuation state
-  const [usePunctuation, setUsePunctuation] = useState(false);
-  const [lastProcessedText, setLastProcessedText] = useState("");
-  const [leftoverText, setLeftoverText] = useState("");
-  const [leftoverStartTime, setLeftoverStartTime] = useState<number | null>(null);
-  const [isProcessingPunctuation, setIsProcessingPunctuation] = useState(false);
-  const [previousChunk, setPreviousChunk] = useState("");
+
+
+  // Advanced ASR state
+  const [micVAD, setMicVAD] = useState<MicVAD | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [vadStatus, setVadStatus] = useState<'idle' | 'listening' | 'speaking' | 'processing'>('idle');
 
   // UI language state to trigger re-renders when changed
   const [uiLanguage, setUiLanguage] = useState(() => {
@@ -241,21 +251,18 @@ function Content() {
   };
 
   const translateText = useAction(api.translate.translateText);
-  const addPunctuation = useAction(api.punctuation.addPunctuation);
+  const transcribeWithGroq = useAction(api.groqTranscription.transcribeAudioStream);
   const sessionIdRef = useRef(getSessionId());
   
   // Add ref to track if we want to keep listening (for proper cleanup)
   const shouldKeepListeningRef = useRef(false);
 
-  // Refs for punctuation processing
-  const punctuationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentTranscriptRef = useRef<string>("");
   const isSpeakingRef = useRef<boolean>(false);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Local state for transcript and translations
   const [transcript, setTranscript] = useState<string>("");
-  const [punctuatedTranscript, setPunctuatedTranscript] = useState<string>("");
   const [translations, setTranslations] = useState<Record<string, string>>({});
 
   // Update to use the Convex mutation to store transcriptions
@@ -298,214 +305,152 @@ function Content() {
     }
   }, [sourceLanguage]);
 
-  // Punctuation processing logic
-  const processPunctuationChunk = async (currentText: string) => {
-    const startTime = Date.now();
-    console.log(`[PUNCTUATION] Processing started at ${new Date().toLocaleTimeString()}`);
-    console.log(`[PUNCTUATION] Current processing state: ${isProcessingPunctuation}`);
-    console.log(`[PUNCTUATION] Input text length: ${currentText.length}`);
-    console.log(`[PUNCTUATION] Last processed text length: ${lastProcessedText.length}`);
-    
-    if (isProcessingPunctuation || !usePunctuation || !currentText.trim()) {
-      console.log(`[PUNCTUATION] Skipping - Processing: ${isProcessingPunctuation}, UsePunctuation: ${usePunctuation}, HasText: ${!!currentText.trim()}`);
-      return;
-    }
 
+  // Initialize MicVAD for Advanced ASR
+  const initializeAdvancedASR = async () => {
     try {
-      setIsProcessingPunctuation(true);
+      setVadStatus('listening');
       
-      // Extract delta (new text) by comparing with last processed text
-      let deltaText = currentText;
-      if (lastProcessedText && currentText.startsWith(lastProcessedText)) {
-        deltaText = currentText.slice(lastProcessedText.length).trim();
-        console.log(`[PUNCTUATION] Delta extracted (prefix match): "${deltaText}" (${deltaText.length} chars)`);
-      } else if (lastProcessedText) {
-        // Handle text drift - find common prefix and extract new portion
-        let commonLength = 0;
-        const minLength = Math.min(lastProcessedText.length, currentText.length);
-        for (let i = 0; i < minLength; i++) {
-          if (lastProcessedText[i] === currentText[i]) {
-            commonLength = i + 1;
-          } else {
-            break;
-          }
-        }
-        deltaText = currentText.slice(commonLength).trim();
-        console.log(`[PUNCTUATION] Delta extracted (drift handling): "${deltaText}" (${deltaText.length} chars)`);
-        console.log(`[PUNCTUATION] Common prefix length: ${commonLength}`);
-      } else {
-        console.log(`[PUNCTUATION] Processing full text (first time): "${deltaText}" (${deltaText.length} chars)`);
-      }
-      
-      // Skip if no new text
-      if (!deltaText) {
-        console.log(`[PUNCTUATION] No new text to process`);
-        return;
-      }
-      
-      // Prepend leftover text from previous cycle
-      const textToProcess = leftoverText ? `${leftoverText} ${deltaText}` : deltaText;
-      console.log(`[PUNCTUATION] Text to process: "${textToProcess}" (${textToProcess.length} chars)`);
-      console.log(`[PUNCTUATION] Leftover from previous cycle: "${leftoverText}"`);
-      
-      // Get punctuated text from GPT
-      const gptStartTime = Date.now();
-      const punctuatedChunk = await addPunctuation({ text: textToProcess });
-      const gptEndTime = Date.now();
-      console.log(`[PUNCTUATION] GPT response time: ${gptEndTime - gptStartTime}ms`);
-      console.log(`[PUNCTUATION] GPT result: "${punctuatedChunk}"`);
-      
-      // Parse punctuated text for complete vs incomplete phrases
-      const sentenceEndRegex = /[.!?。！？]/;
-      const sentences = punctuatedChunk.split(/(?<=[.!?。！？])\s+/);
-      
-      let completeText = "";
-      let newLeftover = "";
-      
-      if (sentences.length > 1) {
-        // Multiple sentences - all but last are complete
-        completeText = sentences.slice(0, -1).join(" ");
-        newLeftover = sentences[sentences.length - 1];
-        
-        // Check if the last sentence actually ends with punctuation
-        if (sentenceEndRegex.test(newLeftover.trim())) {
-          completeText = punctuatedChunk;
-          newLeftover = "";
-        }
-      } else {
-        // Single sentence - check if it ends with punctuation
-        if (sentenceEndRegex.test(punctuatedChunk.trim())) {
-          completeText = punctuatedChunk;
-          newLeftover = "";
-        } else {
-          newLeftover = punctuatedChunk;
-        }
-      }
-      
-      // Force processing if leftover text has been accumulating too long
-      const now = Date.now();
-      const leftoverAge = leftoverStartTime ? now - leftoverStartTime : 0;
-      const LEFTOVER_TIMEOUT = 6000; // 6 seconds (3 cycles)
-      
-      if (newLeftover && leftoverAge > LEFTOVER_TIMEOUT) {
-        console.log(`[PUNCTUATION] Forcing leftover processing after ${leftoverAge}ms`);
-        completeText = completeText ? `${completeText} ${newLeftover}` : newLeftover;
-        newLeftover = "";
-      }
-      
-      console.log(`[PUNCTUATION] Complete text: "${completeText}"`);
-      console.log(`[PUNCTUATION] New leftover: "${newLeftover}"`);
-      
-      // Update punctuated transcript
-      if (completeText) {
-        // Translate complete phrases immediately and replace current translations
-        if (completeText.trim()) {
-          const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
+      const vad = await MicVAD.new({
+        preSpeechPadFrames: 10,
+        positiveSpeechThreshold: 0.5,
+        negativeSpeechThreshold: 0.35,
+        redemptionFrames: 8,
+        frameSamples: 1536,
+        minSpeechFrames: 4,
+        onSpeechStart: () => {
+          console.log('[VAD] Speech started');
+          setVadStatus('speaking');
+          isSpeakingRef.current = true;
+        },
+        onSpeechEnd: async (audio: Float32Array) => {
+          console.log('[VAD] Speech ended, processing audio');
+          setVadStatus('processing');
           
-          const translationStartTime = Date.now();
-          Promise.all(
-            targetLanguages.map(targetLang =>
-              translateText({
-                text: completeText.trim(),
-                sourceLanguage,
-                targetLanguage: targetLang,
-                useGpt,
-                context: previousChunk,
-              }).then(translation => ({ lang: targetLang, translation }))
-            )
-          ).then(translationsResult => {
-            const translationEndTime = Date.now();
-            console.log(`[PUNCTUATION] Translation time: ${translationEndTime - translationStartTime}ms`);
+          try {
+            // Check audio duration - limit to 30 seconds to prevent large files
+            const durationInSeconds = audio.length / 16000; // 16kHz sample rate
+            console.log(`[VAD] Audio duration: ${durationInSeconds.toFixed(2)} seconds`);
             
-            const newTranslations = translationsResult.reduce(
-              (acc, { lang, translation }) => ({
-                ...acc,
-                [lang]: translation, // Replace with new translation, don't accumulate
-              }),
-              {}
-            );
-            setTranslations(newTranslations); // Replace translations completely
-            setPreviousChunk(completeText.trim());
-          }).catch(error => {
-            console.error("Translation error:", error);
-          });
-        }
-        
-        // Store the punctuated version for database but don't accumulate
-        setPunctuatedTranscript(completeText);
-      }
+            if (durationInSeconds > 30) {
+              console.warn(`[VAD] Audio too long (${durationInSeconds.toFixed(2)}s), truncating to 30 seconds`);
+              const maxSamples = 30 * 16000; // 30 seconds at 16kHz
+              audio = audio.slice(0, maxSamples);
+            }
+            
+            // Convert Float32Array to WAV format
+            const wavBuffer = float32ArrayToWav(audio, 16000);
+            
+            // Check file size before sending
+            const fileSizeInMB = wavBuffer.byteLength / (1024 * 1024);
+            console.log(`[VAD] Audio file size: ${fileSizeInMB.toFixed(2)} MB`);
+            
+            if (fileSizeInMB > 25) {
+              console.error(`[VAD] Audio file too large: ${fileSizeInMB.toFixed(2)} MB`);
+              throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB. Please speak for shorter periods.`);
+            }
+            
+            const result = await transcribeWithGroq({
+              audioBlob: wavBuffer, // Pass ArrayBuffer directly, not Uint8Array
+              language: sourceLanguage,
+              sessionId: sessionIdRef.current,
+            });
+            
+            if (result.text.trim()) {
+              setTranscript(result.text);
+              currentTranscriptRef.current = result.text;
+              
+              
+              // Translate the result text
+              if (result.text.trim()) {
+                const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
+                
+                try {
+                  const translationsResult = await Promise.all(
+                    targetLanguages.map(targetLang =>
+                      translateText({
+                        text: result.text.trim(),
+                        sourceLanguage,
+                        targetLanguage: targetLang,
+                        useGpt,
+                      }).then(translation => ({ lang: targetLang, translation }))
+                    )
+                  );
+                  
+                  const newTranslations = translationsResult.reduce(
+                    (acc, { lang, translation }) => ({
+                      ...acc,
+                      [lang]: translation,
+                    }),
+                    {}
+                  );
+                  
+                  setTranslations(newTranslations);
+                } catch (error) {
+                  console.error("Translation error:", error);
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Groq transcription error:", error);
+          } finally {
+            setVadStatus('listening');
+            isSpeakingRef.current = false;
+          }
+        },
+        onVADMisfire: () => {
+          console.log('[VAD] Misfire detected');
+          setVadStatus('listening');
+          isSpeakingRef.current = false;
+        },
+      });
       
-      // Update state
-      setLeftoverText(newLeftover);
-      
-      // Manage leftover timing
-      if (newLeftover && !leftoverText) {
-        // Starting new leftover text
-        setLeftoverStartTime(Date.now());
-        console.log(`[PUNCTUATION] Starting leftover timer for: "${newLeftover}"`);
-      } else if (!newLeftover) {
-        // Leftover text was processed
-        setLeftoverStartTime(null);
-        console.log(`[PUNCTUATION] Leftover timer reset`);
-      }
-      
-      setLastProcessedText(currentText);
-      
-      const endTime = Date.now();
-      console.log(`[PUNCTUATION] Total processing time: ${endTime - startTime}ms`);
-      console.log(`[PUNCTUATION] Processing completed at ${new Date().toLocaleTimeString()}`);
-      
+      setMicVAD(vad);
+      return vad;
     } catch (error) {
-      console.error('[PUNCTUATION] Processing error:', error);
-    } finally {
-      setIsProcessingPunctuation(false);
+      console.error("Error initializing MicVAD:", error);
+      setVadStatus('idle');
+      return null;
     }
   };
 
-  // Set up punctuation processing interval
-  useEffect(() => {
-    if (usePunctuation && isStarted && sourceLanguage) {
-      console.log('[PUNCTUATION] Starting 2-second interval');
-      punctuationIntervalRef.current = setInterval(() => {
-        const currentText = currentTranscriptRef.current;
-        const timestamp = new Date().toLocaleTimeString();
-        console.log(`[INTERVAL] Triggered at ${timestamp}`);
-        console.log(`[INTERVAL] Current text: "${currentText}" (${currentText.length} chars)`);
-        console.log(`[INTERVAL] Last processed: "${lastProcessedText}" (${lastProcessedText.length} chars)`);
-        console.log(`[INTERVAL] Speaker active: ${isSpeakingRef.current}`);
-        console.log(`[INTERVAL] Text changed: ${currentText !== lastProcessedText}`);
-        
-        if (isSpeakingRef.current && currentText && currentText !== lastProcessedText) {
-          console.log(`[INTERVAL] Calling processPunctuationChunk`);
-          processPunctuationChunk(currentText);
-        } else {
-          console.log(`[INTERVAL] Skipping - no new text or speaker inactive`);
-        }
-      }, 2000); // Process every 2 seconds
-      
-      return () => {
-        console.log('[PUNCTUATION] Cleaning up interval');
-        if (punctuationIntervalRef.current) {
-          clearInterval(punctuationIntervalRef.current);
-        }
-      };
-    }
-  }, [usePunctuation, isStarted, sourceLanguage, lastProcessedText]);
-
-  // Clean up punctuation state when toggle is disabled
-  useEffect(() => {
-    if (!usePunctuation) {
-      setLastProcessedText("");
-      setLeftoverText("");
-      setLeftoverStartTime(null);
-      setPunctuatedTranscript("");
-      setTranslations({}); // Clear translations when disabling punctuation
-      setPreviousChunk("");
-      if (punctuationIntervalRef.current) {
-        clearInterval(punctuationIntervalRef.current);
+  // Helper function to convert Float32Array to WAV format
+  const float32ArrayToWav = (buffer: Float32Array, sampleRate: number): ArrayBuffer => {
+    const length = buffer.length;
+    const arrayBuffer = new ArrayBuffer(44 + length * 2);
+    const view = new DataView(arrayBuffer);
+    
+    // WAV header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
       }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + length * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, length * 2, true);
+    
+    // Convert float samples to 16-bit PCM
+    let offset = 44;
+    for (let i = 0; i < length; i++) {
+      const sample = Math.max(-1, Math.min(1, buffer[i]));
+      view.setInt16(offset, sample * 0x7FFF, true);
+      offset += 2;
     }
-  }, [usePunctuation]);
+    
+    return arrayBuffer;
+  };
 
   // Initialize Web Speech API and handle transcription
   useEffect(() => {
@@ -516,6 +461,26 @@ function Content() {
 
     shouldKeepListeningRef.current = true;
 
+    // Use Advanced ASR (MicVAD + Groq) if enabled
+    if (useAdvancedAsr) {
+      initializeAdvancedASR().then(vad => {
+        if (vad) {
+          vad.start();
+          setIsRecording(true);
+        }
+      });
+      
+      return () => {
+        shouldKeepListeningRef.current = false;
+        if (micVAD) {
+          micVAD.pause();
+          setIsRecording(false);
+          setVadStatus('idle');
+        }
+      };
+    }
+
+    // Use Web Speech API if Advanced ASR is disabled
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       console.error("Speech Recognition API not supported in this browser");
@@ -532,7 +497,9 @@ function Content() {
       let interimTranscript = '';
       
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const transcript = event.results[i][0].transcript;
+        const result = event.results[i];
+        const transcript = result[0].transcript;
+        const confidence = result[0].confidence;
         
         if (event.results[i].isFinal) {
           // Set a timeout to mark speaking as false after a delay
@@ -551,8 +518,8 @@ function Content() {
           setTranscript(finalTranscript);
           currentTranscriptRef.current = finalTranscript;
           
-          // If punctuation is disabled, translate immediately and replace existing translations
-          if (!usePunctuation && finalTranscript.trim()) {
+          // Translate immediately and replace existing translations
+          if (finalTranscript.trim()) {
             const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
             
             try {
@@ -628,6 +595,8 @@ function Content() {
       recognitionInstance.start();
     } catch (error) {
       console.error("Error starting recognition:", error);
+  // Update the OBS link generation to include the session ID
+  const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}`;
     }
     
     // Cleanup on unmount or when dependencies change
@@ -639,7 +608,7 @@ function Content() {
         console.error("Error stopping recognition:", e);
       }
     };
-  }, [sourceLanguage, isStarted, useGpt, translateText]);
+  }, [sourceLanguage, isStarted, useGpt, useAdvancedAsr, translateText, transcribeWithGroq]);
 
   // Start/stop listening
   const startListening = () => {
@@ -648,6 +617,8 @@ function Content() {
 
   const stopListening = () => {
     shouldKeepListeningRef.current = false;
+    
+    // Stop Web Speech API if active
     if (recognition) {
       try {
         recognition.stop();
@@ -655,30 +626,33 @@ function Content() {
         console.error("Error stopping recognition:", error);
       }
     }
+    
+    // Stop Advanced ASR if active
+    if (micVAD) {
+      try {
+        micVAD.pause();
+        setIsRecording(false);
+        setVadStatus('idle');
+      } catch (error) {
+        console.error("Error stopping MicVAD:", error);
+      }
+    }
+    
+    // Clear speaking state and timeouts
     isSpeakingRef.current = false;
     if (speakingTimeoutRef.current) {
       clearTimeout(speakingTimeoutRef.current);
       speakingTimeoutRef.current = null;
     }
     
-    // Clean up punctuation processing
-    if (punctuationIntervalRef.current) {
-      clearInterval(punctuationIntervalRef.current);
-    }
-    
+    // Reset all state to return to home page
     setIsStarted(false);
     setTranscript("");
-    setPunctuatedTranscript("");
     setTranslations({});
-    setLastProcessedText("");
-    setLeftoverText("");
-    setLeftoverStartTime(null);
-    setPreviousChunk("");
     currentTranscriptRef.current = "";
   };
 
-  // Update the OBS link generation to include the session ID and punctuation setting
-  const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}${usePunctuation ? '&punctuation=true' : ''}`;
+  const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}`;
   
   // Also create CSS Customizer link with session ID
   const cssCustomizerLinkWithSession = `/css-customizer?session=${sessionIdRef.current}&source=${sourceLanguage}`;
@@ -716,38 +690,32 @@ function Content() {
               ))}
             </select>
             
+            {/* Advanced ASR Toggle */}
             <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors mb-4">
-              <span>{t.useGptTranslation}</span>
+              <span>{t.useAdvancedAsr}</span>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={useAdvancedAsr}
+                  onChange={(e) => setUseAdvancedAsr(e.target.checked)}
+                  className="sr-only"
+                />
+                <div className={`w-12 h-6 rounded-full ${useAdvancedAsr ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
+                <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${useAdvancedAsr ? 'translate-x-6' : ''}`}></div>
+              </div>
+            </label>
+
+            <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors mb-4">
+              <span className="text-left">{t.useGptTranslation}</span>
               <div className="relative">
                 <input
                   type="checkbox"
                   checked={useGpt}
-                  onChange={(e) => {
-                    setUseGpt(e.target.checked);
-                    // If GPT is being disabled, also disable chunking
-                    if (!e.target.checked) {
-                      setUsePunctuation(false);
-                    }
-                  }}
+                  onChange={(e) => setUseGpt(e.target.checked)}
                   className="sr-only"
                 />
                 <div className={`w-12 h-6 rounded-full ${useGpt ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
                 <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${useGpt ? 'translate-x-6' : ''}`}></div>
-              </div>
-            </label>
-
-            <label className={`flex items-center justify-between w-full p-3 rounded-lg ${useGpt ? 'bg-gray-800/50 hover:bg-gray-800/70' : 'bg-gray-800/20 cursor-not-allowed'} text-white transition-colors mb-4`}>
-              <span className={!useGpt ? 'text-gray-500' : ''}>{t.longTextChunking}</span>
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={usePunctuation}
-                  onChange={(e) => setUsePunctuation(e.target.checked)}
-                  disabled={!useGpt}
-                  className="sr-only"
-                />
-                <div className={`w-12 h-6 rounded-full ${usePunctuation && useGpt ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
-                <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${usePunctuation && useGpt ? 'translate-x-6' : ''}`}></div>
               </div>
             </label>
           </div>
@@ -777,12 +745,6 @@ function Content() {
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
               <h2 className="text-2xl font-bold text-white text-shadow">{t.console}</h2>
-              {usePunctuation && (
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <div className={`w-2 h-2 rounded-full ${isProcessingPunctuation ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></div>
-                  <span>{isProcessingPunctuation ? t.processing : t.punctuationActive}</span>
-                </div>
-              )}
             </div>
             <button 
               onClick={stopListening}
@@ -792,27 +754,25 @@ function Content() {
             </button>
           </div>
           
-          <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
-            <div className="p-6 bg-gray-900/60 backdrop-blur-sm rounded-xl shadow-inner border border-gray-800/30">
-              <div className="text-sm uppercase text-gray-400 mb-2 font-semibold">
-                {t.original} ({LANGUAGES[sourceLanguage as keyof typeof LANGUAGES]})
-              </div>
-              <p className="text-2xl text-white text-shadow min-h-[3rem]">
-                {displayTranscript || t.listening}
-              </p>
-              {usePunctuation && leftoverText && (
-                <div className="mt-2 text-sm text-gray-500">
-                  {t.incomplete}: {leftoverText}
+          <div className="flex-1 flex gap-6 overflow-y-auto">
+            <div className="flex-1 flex flex-col gap-6">
+              <div className="p-6 bg-gray-900/60 backdrop-blur-sm rounded-xl shadow-inner border border-gray-800/30">
+                <div className="text-sm uppercase text-gray-400 mb-2 font-semibold">
+                  {t.original} ({LANGUAGES[sourceLanguage as keyof typeof LANGUAGES]})
                 </div>
-              )}
-            </div>
-            
-            {Object.entries(translations).map(([lang, translation]) => (
-              <div key={lang} className="p-6 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-inner border border-gray-800/30">
-                <div className="text-sm uppercase text-gray-400 mb-2 font-semibold">{LANGUAGES[lang as keyof typeof LANGUAGES]}</div>
-                <p className="text-2xl text-white text-shadow">{translation}</p>
+                <p className="text-2xl text-white text-shadow min-h-[3rem]">
+                  {displayTranscript || t.listening}
+                </p>
               </div>
-            ))}
+
+              {Object.entries(translations).map(([lang, translation]) => (
+                <div key={lang} className="p-6 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-inner border border-gray-800/30">
+                  <div className="text-sm uppercase text-gray-400 mb-2 font-semibold">{LANGUAGES[lang as keyof typeof LANGUAGES]}</div>
+                  <p className="text-2xl text-white text-shadow">{translation}</p>
+                </div>
+              ))}
+            </div>
+
           </div>
           
           <div className="mt-8 flex justify-center gap-4">

@@ -2,71 +2,11 @@
 
 import { v } from "convex/values";
 import { action } from "./_generated/server";
-import { Translate } from '@google-cloud/translate/build/src/v2';
 import OpenAI from "openai";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-// API credentials rotation system
-const API_CREDENTIALS = [
-  {
-    projectId: process.env.GOOGLE_PROJECT_ID_1,
-    key: process.env.GOOGLE_API_KEY_1,
-    charactersTranslated: 0
-  },
-  {
-    projectId: process.env.GOOGLE_PROJECT_ID_2,
-    key: process.env.GOOGLE_API_KEY_2,
-    charactersTranslated: 0
-  },
-  {
-    projectId: process.env.GOOGLE_PROJECT_ID_3,
-    key: process.env.GOOGLE_API_KEY_3,
-    charactersTranslated: 0
-  }
-];
-
-let currentCredentialIndex = 0;
-const CHAR_LIMIT = 450000;
-
-function getNextCredentials() {
-  const current = API_CREDENTIALS[currentCredentialIndex];
-  
-  if (current.charactersTranslated < CHAR_LIMIT && 
-      current.projectId && 
-      current.key) {
-    return current;
-  }
-  
-  for (let i = 1; i < API_CREDENTIALS.length; i++) {
-    const nextIndex = (currentCredentialIndex + i) % API_CREDENTIALS.length;
-    const next = API_CREDENTIALS[nextIndex];
-    
-    if (next.charactersTranslated < CHAR_LIMIT && 
-        next.projectId && 
-        next.key) {
-      currentCredentialIndex = nextIndex;
-      return next;
-    }
-  }
-  
-  // Reset character counts if all are over the limit
-  for (let cred of API_CREDENTIALS) {
-    cred.charactersTranslated = 0;
-  }
-  
-  // Find the first valid credential
-  for (let i = 0; i < API_CREDENTIALS.length; i++) {
-    if (API_CREDENTIALS[i].projectId && API_CREDENTIALS[i].key) {
-      currentCredentialIndex = i;
-      return API_CREDENTIALS[i];
-    }
-  }
-  
-  return API_CREDENTIALS[0];
-}
 
 const LANGUAGES: Record<string, string> = {
   en: "English",
@@ -86,8 +26,8 @@ export const translateText = action({
     if (args.useGpt) {
       try {
         const systemPrompt = `You are a professional translator. Translate the following text from ${LANGUAGES[args.sourceLanguage]} to ${LANGUAGES[args.targetLanguage]}. ${
-          args.context 
-            ? `Consider this previous context for better translation: "${args.context}"\n\nNow translate the following text, maintaining consistency with the context:` 
+          args.context
+            ? `Consider this previous context for better translation: "${args.context}"\n\nNow translate the following text, maintaining consistency with the context:`
             : 'Maintain the original meaning and nuance, but make it sound natural in the target language.'
         } Return only the translated text with no explanations or additional content.`;
         
@@ -109,40 +49,78 @@ export const translateText = action({
         return translation;
       } catch (error) {
         console.error('GPT translation error:', error);
-        // Fall back to Google Translate if GPT fails
-        return translateWithGoogleApi(args.text, args.sourceLanguage, args.targetLanguage);
+        // Fall back to OpenRouter Gemma if GPT fails
+        return translateWithOpenRouter(args.text, args.sourceLanguage, args.targetLanguage);
       }
     }
 
-    return translateWithGoogleApi(args.text, args.sourceLanguage, args.targetLanguage);
+    return translateWithOpenRouter(args.text, args.sourceLanguage, args.targetLanguage);
   },
 });
 
-// Helper function to translate using Google API
-async function translateWithGoogleApi(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
+// Helper function to translate using OpenRouter Gemma 3 4B
+async function translateWithOpenRouter(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
   try {
-    const credentials = getNextCredentials();
-    
-    if (!credentials.projectId || !credentials.key) {
-      console.error('No valid API credentials available');
+    const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+    if (!openrouterApiKey) {
+      console.error('OPENROUTER_API_KEY environment variable is not set');
       return text;
     }
 
-    const translate = new Translate({
-      projectId: credentials.projectId,
-      key: credentials.key
+    // Craft prompt to prevent sentence carryover from previous prompts
+    // Note: Gemma doesn't support system prompts, so we include everything in the user message
+    const prompt = `Translate ONLY the following text from ${LANGUAGES[sourceLanguage]} to ${LANGUAGES[targetLanguage]}.
+
+IMPORTANT: Do not translate any text from previous conversations or examples. Only translate the text provided below.
+
+Text to translate: "${text}"
+
+Translation:`;
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openrouterApiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://catt-by-catt.com',
+        'X-Title': 'CATT by Catt - Real-time Translation',
+      },
+      body: JSON.stringify({
+        model: 'google/gemma-3-4b-it:free',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+      }),
     });
 
-    const [translation] = await translate.translate(text, {
-      from: sourceLanguage,
-      to: targetLanguage
-    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenRouter API error:', response.status, errorText);
+      throw new Error(`OpenRouter API error: ${response.status}`);
+    }
 
-    credentials.charactersTranslated += text.length;
+    const result = await response.json();
+    const translation = result.choices?.[0]?.message?.content;
     
-    return translation;
+    if (!translation) {
+      throw new Error('Empty translation from OpenRouter');
+    }
+
+    // Clean up the translation to remove any extra text that might have been added
+    const cleanedTranslation = translation.trim()
+      .replace(/^Translation:\s*/i, '')
+      .replace(/^["']|["']$/g, ''); // Remove surrounding quotes if present
+
+    console.log('[OPENROUTER] Translation result:', { original: text, translation: cleanedTranslation });
+    
+    return cleanedTranslation;
   } catch (error) {
-    console.error('Translation error:', error);
+    console.error('OpenRouter translation error:', error);
     return text;
   }
 }

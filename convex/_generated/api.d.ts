@@ -14,8 +14,8 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as auth from "../auth.js";
+import type * as groqTranscription from "../groqTranscription.js";
 import type * as http from "../http.js";
-import type * as punctuation from "../punctuation.js";
 import type * as router from "../router.js";
 import type * as transcription from "../transcription.js";
 import type * as translate from "../translate.js";
@@ -30,8 +30,8 @@ import type * as translate from "../translate.js";
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  groqTranscription: typeof groqTranscription;
   http: typeof http;
-  punctuation: typeof punctuation;
   router: typeof router;
   transcription: typeof transcription;
   translate: typeof translate;
