@@ -49,78 +49,67 @@ export const translateText = action({
         return translation;
       } catch (error) {
         console.error('GPT translation error:', error);
-        // Fall back to OpenRouter Gemma if GPT fails
-        return translateWithOpenRouter(args.text, args.sourceLanguage, args.targetLanguage);
+        // Fall back to Groq OSS 20B if GPT fails
+        return translateWithGroq(args.text, args.sourceLanguage, args.targetLanguage);
       }
     }
-
-    return translateWithOpenRouter(args.text, args.sourceLanguage, args.targetLanguage);
+ 
+    return translateWithGroq(args.text, args.sourceLanguage, args.targetLanguage);
   },
 });
 
-// Helper function to translate using OpenRouter Gemma 3 4B
-async function translateWithOpenRouter(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
+// Helper function to translate using Groq OpenAI OSS 20B
+async function translateWithGroq(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
   try {
-    const openrouterApiKey = process.env.OPENROUTER_API_KEY;
-    if (!openrouterApiKey) {
-      console.error('OPENROUTER_API_KEY environment variable is not set');
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (!groqApiKey) {
+      console.error('GROQ_API_KEY environment variable is not set');
       return text;
     }
 
-    // Craft prompt to prevent sentence carryover from previous prompts
-    // Note: Gemma doesn't support system prompts, so we include everything in the user message
-    const prompt = `Translate ONLY the following text from ${LANGUAGES[sourceLanguage]} to ${LANGUAGES[targetLanguage]}.
+    // Reuse the same system and user prompts as the OpenAI nano path
+    const systemPrompt = `You are a professional translator. Translate the following text from ${LANGUAGES[sourceLanguage]} to ${LANGUAGES[targetLanguage]}. ${
+      // No context available here, keep parity with nano path's "no context" branch
+      'Maintain the original meaning and nuance, but make it sound natural in the target language.'
+    } Return only the translated text with no explanations or additional content.`;
 
-IMPORTANT: Do not translate any text from previous conversations or examples. Only translate the text provided below.
-
-Text to translate: "${text}"
-
-Translation:`;
-
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openrouterApiKey}`,
+        'Authorization': `Bearer ${groqApiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://catt-by-catt.com',
-        'X-Title': 'CATT by Catt - Real-time Translation',
       },
       body: JSON.stringify({
-        model: 'google/gemma-3-4b-it:free',
+        model: 'openai/gpt-oss-20b',
         messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: text }
         ],
         temperature: 0.3,
+        top_p: 1,
         max_tokens: 500,
+        stream: false
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenRouter API error:', response.status, errorText);
-      throw new Error(`OpenRouter API error: ${response.status}`);
+      console.error('Groq API error:', response.status, errorText);
+      throw new Error(`Groq API error: ${response.status}`);
     }
 
     const result = await response.json();
     const translation = result.choices?.[0]?.message?.content;
-    
     if (!translation) {
-      throw new Error('Empty translation from OpenRouter');
+      throw new Error('Empty translation from Groq');
     }
 
-    // Clean up the translation to remove any extra text that might have been added
-    const cleanedTranslation = translation.trim()
-      .replace(/^Translation:\s*/i, '')
-      .replace(/^["']|["']$/g, ''); // Remove surrounding quotes if present
-
-    console.log('[OPENROUTER] Translation result:', { original: text, translation: cleanedTranslation });
-    
-    return cleanedTranslation;
+    // Clean
+    const cleaned = String(translation).trim().replace(/^["']|["']$/g, '');
+    console.log('[GROQ] Translation result:', { original: text, translation: cleaned });
+    return cleaned;
   } catch (error) {
-    console.error('OpenRouter translation error:', error);
+    console.error('Groq translation error:', error);
     return text;
   }
 }
