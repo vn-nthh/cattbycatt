@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('electron', {
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
   setApiKey: (key) => ipcRenderer.invoke('set-api-key', key),
   deleteApiKey: () => ipcRenderer.invoke('delete-api-key'),
+  validateApiKey: (key) => ipcRenderer.invoke('validate-api-key', key),
+  getLocale: () => ipcRenderer.invoke('get-locale'),
 })
 
 console.log('Preload script loaded, electron API exposed')

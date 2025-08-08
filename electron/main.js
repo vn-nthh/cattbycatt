@@ -19,8 +19,16 @@ function createWindow() {
   console.log('Preload file exists:', fs.existsSync(preloadPath))
   
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 980,
+    height: 720,
+    useContentSize: true,
+    backgroundColor: '#0d0c13',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#00000000',
+      symbolColor: '#ffffff',
+      height: 32,
+    },
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -73,6 +81,33 @@ ipcMain.handle('delete-api-key', async () => {
   } catch (err) {
     console.error('delete-api-key error:', err)
     return false
+  }
+})
+
+// Validate Groq API key by calling a lightweight endpoint
+ipcMain.handle('validate-api-key', async (_event, apiKey) => {
+  try {
+    if (typeof apiKey !== 'string' || !apiKey.trim()) return false
+    const resp = await fetch('https://api.groq.com/openai/v1/models', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${apiKey.trim()}`,
+      },
+    })
+    return resp.ok
+  } catch (err) {
+    console.error('validate-api-key error:', err)
+    return false
+  }
+})
+
+// Provide OS locale to renderer for default language selection
+ipcMain.handle('get-locale', async () => {
+  try {
+    return app.getLocale()
+  } catch (err) {
+    console.error('get-locale error:', err)
+    return 'en'
   }
 })
 

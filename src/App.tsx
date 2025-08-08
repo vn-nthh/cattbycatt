@@ -5,7 +5,6 @@ import { useEffect, useState, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
 import ServerExportView from "./components/ServerExportView";
 import CSSCustomizer from "./components/CSSCustomizer";
-import ApiKeyScreen from "./components/ApiKeyScreen";
 import { getSessionId } from "./lib/session";
 import { MicVAD } from "@ricky0123/vad-web";
 
@@ -34,10 +33,13 @@ interface MainAppTranslations {
   // App title and description
   appTitle: string;
   appSubtitle: string;
+  loading: string;
   
   // Language selection
   chooseLanguage: string;
   selectLanguage: string;
+  chooseLangNext: string;
+  setKeyFirst: string;
   
   // Settings
   useAdvancedAsr: string;
@@ -45,6 +47,7 @@ interface MainAppTranslations {
   // Actions
   startListening: string;
   customizeObsStyling: string;
+  changeApiKey: string;
   
   // Console page
   console: string;
@@ -53,59 +56,105 @@ interface MainAppTranslations {
   
   // Language labels
   original: string;
+  inputDevice: string;
+  microphone: string;
   
   // Links
   openObsView: string;
   customizeObs: string;
+  linkCopied: string;
+
+  // API key flow
+  groqApiKey: string;
+  invalidGroqKey: string;
+  groqKeyValidated: string;
+  save: string;
+  saving: string;
 }
 
 const mainAppTranslations: Record<string, MainAppTranslations> = {
   en: {
     appTitle: "CATT by Catt",
     appSubtitle: "Real-time Captioning And Translating Tool",
+    loading: "Loading…",
     chooseLanguage: "Choose Your Language",
     selectLanguage: "Select Language",
+    chooseLangNext: "Next, choose a language",
+    setKeyFirst: "First, set a Groq API key.",
     useAdvancedAsr: "Use Advanced ASR",
     startListening: "Start Listening",
     customizeObsStyling: "🎨 Customize OBS Styling",
+    changeApiKey: "🔑 Change API Key",
     console: "Console",
     stopAndReset: "Stop & Reset",
     listening: "Listening...",
     original: "Original",
+    inputDevice: "Input device",
+    microphone: "Microphone",
     openObsView: "Copy OBS Link",
-    customizeObs: "🎨 Customize OBS"
+    customizeObs: "🎨 Customize OBS",
+    linkCopied: "Link copied!",
+    groqApiKey: "Groq API Key",
+    invalidGroqKey: "Invalid Groq API key",
+    groqKeyValidated: "Groq API Validated",
+    save: "Save",
+    saving: "Saving…",
   },
   
   ja: {
     appTitle: "CATT by Catt",
     appSubtitle: "リアルタイム字幕・翻訳ツール",
+    loading: "読み込み中…",
     chooseLanguage: "言語を選択",
     selectLanguage: "言語を選択",
+    chooseLangNext: "次に、言語を選択してください",
+    setKeyFirst: "まず、Groq API キーを設定してください。",
     useAdvancedAsr: "高度なASRを使用",
     startListening: "聞き取り開始",
     customizeObsStyling: "🎨 OBSスタイルをカスタマイズ",
+    changeApiKey: "🔑 APIキーを変更",
     console: "コンソール",
     stopAndReset: "停止してリセット",
     listening: "聞き取り中...",
     original: "原文",
+    inputDevice: "入力デバイス",
+    microphone: "マイク",
     openObsView: "OBSリンクをコピー",
-    customizeObs: "🎨 OBSをカスタマイズ"
+    customizeObs: "🎨 OBSをカスタマイズ",
+    linkCopied: "リンクをコピーしました！",
+    groqApiKey: "Groq APIキー",
+    invalidGroqKey: "無効な Groq API キーです",
+    groqKeyValidated: "Groq API キーを確認しました",
+    save: "保存",
+    saving: "保存中…",
   },
   
   ko: {
     appTitle: "CATT by Catt",
     appSubtitle: "실시간 자막 및 번역 도구",
+    loading: "로딩 중…",
     chooseLanguage: "언어 선택",
     selectLanguage: "언어 선택",
+    chooseLangNext: "다음으로 언어를 선택하세요",
+    setKeyFirst: "먼저 Groq API 키를 설정하세요.",
     useAdvancedAsr: "고급 ASR 사용",
     startListening: "듣기 시작",
     customizeObsStyling: "🎨 OBS 스타일 사용자 지정",
+    changeApiKey: "🔑 API 키 변경",
     console: "콘솔",
     stopAndReset: "정지 및 재설정",
     listening: "듣는 중...",
     original: "원본",
+    inputDevice: "입력 장치",
+    microphone: "마이크",
     openObsView: "OBS 링크 복사",
-    customizeObs: "🎨 OBS 사용자 지정"
+    customizeObs: "🎨 OBS 사용자 지정",
+    linkCopied: "링크가 복사되었습니다!",
+    groqApiKey: "Groq API 키",
+    invalidGroqKey: "유효하지 않은 Groq API 키입니다",
+    groqKeyValidated: "Groq API 키가 확인되었습니다",
+    save: "저장",
+    saving: "저장 중…",
   }
 };
 
@@ -244,6 +293,13 @@ function Content() {
   // Helper function to get current translations with fallback
   const t = mainAppTranslations[uiLanguage] || mainAppTranslations.en;
 
+  // Dynamic subtitle based on setup progress
+  const subtitle = !hasApiKey
+    ? "First, set a Groq API key."
+    : !sourceLanguage
+    ? "Next, choose a language"
+    : t.appSubtitle;
+
   // Function to update UI language based on source language
   const updateUILanguageFromSource = (selectedSourceLanguage: string) => {
     let newUILanguage = 'en'; // Default to English
@@ -276,6 +332,37 @@ function Content() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>(
     () => localStorage.getItem('preferredMicDeviceId') || ''
   );
+
+  // Local state for API key entry when missing
+  const [newApiKey, setNewApiKey] = useState<string>('')
+  const [isSavingApiKey, setIsSavingApiKey] = useState<boolean>(false)
+
+  // Auto-detect locale on first load if no language chosen
+  useEffect(() => {
+    const stored = localStorage.getItem('language')
+    if (stored) return
+    const detect = async () => {
+      try {
+        let locale = ''
+        // @ts-ignore
+        if (window.electron?.getLocale) locale = await window.electron.getLocale()
+        if (!locale) locale = navigator.language || (navigator.languages && navigator.languages[0]) || 'en'
+        const lower = locale.toLowerCase()
+        let code: keyof typeof LANGUAGES = 'en'
+        if (lower.startsWith('ja')) code = 'ja'
+        else if (lower.startsWith('ko')) code = 'ko'
+        localStorage.setItem('language', code)
+        setUiLanguage(code)
+        if (!sourceLanguage) setSourceLanguage(code)
+      } catch {
+        // Fallback to en
+        localStorage.setItem('language', 'en')
+        setUiLanguage('en')
+        if (!sourceLanguage) setSourceLanguage('en')
+      }
+    }
+    detect()
+  }, [])
 
   useEffect(() => {
     const loadDevices = async () => {
@@ -522,6 +609,29 @@ function Content() {
     return arrayBuffer;
   };
 
+  // UI helper: transient overlay message (same style as Copy OBS Link)
+  function showTransientMessage(message: string) {
+    const indicator = document.createElement('div')
+    indicator.textContent = message
+    indicator.style.position = 'fixed'
+    indicator.style.bottom = '20px'
+    indicator.style.left = '50%'
+    indicator.style.transform = 'translateX(-50%)'
+    indicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'
+    indicator.style.color = 'white'
+    indicator.style.padding = '8px 16px'
+    indicator.style.borderRadius = '4px'
+    indicator.style.zIndex = '9999'
+    indicator.style.opacity = '0'
+    indicator.style.transition = 'opacity 0.3s ease-in-out'
+    document.body.appendChild(indicator)
+    setTimeout(() => { indicator.style.opacity = '1' }, 10)
+    setTimeout(() => {
+      indicator.style.opacity = '0'
+      setTimeout(() => { if (indicator.parentNode) document.body.removeChild(indicator) }, 300)
+    }, 2000)
+  }
+
   // Initialize Web Speech API and handle transcription
   useEffect(() => {
     if (!sourceLanguage || !isStarted) {
@@ -763,93 +873,135 @@ function Content() {
 
   return (
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto bg-gray-950/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-800/30">
+      <div className="titlebar-drag"></div>
       {hasApiKey === null ? (
-        <div className="flex items-center justify-center p-12 text-gray-400">Loading…</div>
-      ) : !hasApiKey ? (
-        <ApiKeyScreen />
+        <div className="flex items-center justify-center p-12 text-gray-400">{t.loading}</div>
       ) : !isStarted ? (
-        <div className="flex flex-col items-center justify-center gap-8 p-10 text-center min-h-[80vh]">
-          <div className="mb-4">
-            <h1 className="text-4xl font-bold text-white text-shadow mb-2">{t.appTitle}</h1>
-            <p className="text-xl text-gray-400 text-shadow">{t.appSubtitle}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-10 min-h-[80vh] items-center">
+          <div className="flex flex-col justify-center self-center">
+            <div className="mb-4">
+              <h1 className="text-4xl font-bold text-white text-shadow mb-2">{t.appTitle}</h1>
+              <p className="text-xl text-gray-400 text-shadow">{t.appSubtitle}</p>
+            </div>
+
+            {hasApiKey && sourceLanguage ? (
+              <div className="flex flex-col items-start mt-2">
+                <button
+                  onClick={startListening}
+                  className="px-8 py-4 rounded-full text-lg font-bold bg-gray-800 text-white shadow-lg hover:bg-gray-700 transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-opacity-50"
+                >
+                  {t.startListening}
+                </button>
+                <div className="mt-4 text-gray-400">
+                  <Link 
+                    to={cssCustomizerLinkWithSession}
+                    target="_blank"
+                    className="flex items-center gap-2 hover:text-white transition-colors text-sm"
+                  >
+                  <span>{t.customizeObsStyling}</span>
+                  </Link>
+                  <button
+                    onClick={async () => {
+                      try {
+                        // @ts-ignore
+                        const ok = await window.electron?.deleteApiKey?.()
+                        if (ok) setHasApiKey(false)
+                      } catch (e) {
+                        console.error('Failed to delete API key', e)
+                      }
+                    }}
+                    className="mt-3 flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm"
+                    title={t.changeApiKey}
+                  >
+                    <span>{t.changeApiKey}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-gray-400 mt-2">{!hasApiKey ? t.setKeyFirst : t.chooseLangNext}</div>
+            )}
           </div>
-          <div className="flex justify-center">
-            <button
-              onClick={async () => {
-                try {
-                  // @ts-ignore
-                  const ok = await window.electron?.deleteApiKey?.()
-                  if (ok) setHasApiKey(false)
-                } catch (e) {
-                  console.error('Failed to delete API key', e)
-                }
-              }}
-              className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-900/30 text-gray-400 hover:bg-gray-900/50 hover:text-white transition-all"
-              title="Change API key"
-            >
-              <span>🔑 Change API Key</span>
-            </button>
-          </div>
-          
-          <div className="w-full max-w-xs bg-gray-900/70 backdrop-blur-sm p-6 rounded-xl shadow-inner border border-gray-800/30">
-            <h2 className="text-xl font-semibold text-white mb-4">{t.chooseLanguage}</h2>
-            <select
-              className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md transition-all hover:bg-gray-750 focus:ring-2 focus:ring-gray-600 focus:outline-none mb-4"
-              value={sourceLanguage}
-              onChange={(e) => {
-                const selectedLang = e.target.value;
-                setSourceLanguage(selectedLang);
-                
-                // Update UI language based on source language selection
-                updateUILanguageFromSource(selectedLang);
-              }}
-            >
-              <option value="">{t.selectLanguage}</option>
-              {Object.entries(LANGUAGES).map(([code, name]) => (
-                <option key={code} value={code}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            
-            {/* Microphone Picker */}
-            <label className="flex flex-col text-left mb-4 text-white">
-              <span className="mb-2">Microphone</span>
-              <select
-                className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md hover:bg-gray-750 focus:ring-2 focus:ring-gray-600 focus:outline-none"
-                value={selectedDeviceId}
-                onChange={(e) => setSelectedDeviceId(e.target.value)}
-              >
-                {audioDevices.map(d => (
-                  <option key={d.deviceId} value={d.deviceId}>{d.label || 'Microphone'}</option>
-                ))}
-              </select>
-            </label>
+
+          <div className="w-full max-w-md md:max-w-none bg-gray-900/70 backdrop-blur-sm p-6 rounded-xl shadow-inner border border-gray-800/30 self-center h-auto min-h-[260px]">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-white">{!hasApiKey ? t.groqApiKey : t.chooseLanguage}</h2>
+            </div>
+            {hasApiKey ? (
+              <>
+                <select
+                  className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md transition-all hover:bg-gray-750 focus:ring-2 focus:ring-gray-600 focus:outline-none mb-4"
+                  value={sourceLanguage}
+                  onChange={(e) => {
+                    const selectedLang = e.target.value;
+                    setSourceLanguage(selectedLang);
+                    updateUILanguageFromSource(selectedLang);
+                  }}
+                >
+                  <option value="">{t.selectLanguage}</option>
+                  {Object.entries(LANGUAGES).map(([code, name]) => (
+                    <option key={code} value={code}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+
+                <h2 className="text-xl font-semibold text-white mb-4">{t.inputDevice}</h2>
+                <select
+                  aria-label={t.inputDevice}
+                  className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md hover:bg-gray-750 focus:ring-2 focus:ring-gray-600 focus:outline-none"
+                  value={selectedDeviceId}
+                  onChange={(e) => setSelectedDeviceId(e.target.value)}
+                >
+                  {audioDevices.map(d => (
+                    <option key={d.deviceId} value={d.deviceId}>{d.label || t.microphone}</option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <input
+                  className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md transition-all focus:ring-2 focus:ring-gray-600 focus:outline-none mb-4"
+                  type="password"
+                  placeholder="sk_groq_..."
+                  value={newApiKey}
+                  onChange={(e) => setNewApiKey(e.target.value)}
+                />
+                <button
+                  onClick={async () => {
+                    const trimmed = newApiKey.trim()
+                    if (!trimmed) return
+                    setIsSavingApiKey(true)
+                    try {
+                      // Validate before saving
+                      // @ts-ignore
+                      const valid = await window.electron?.validateApiKey?.(trimmed)
+                      if (!valid) {
+                        showTransientMessage(t.invalidGroqKey)
+                        return
+                      }
+                      // @ts-ignore
+                      const ok = await window.electron?.setApiKey?.(trimmed)
+                      if (ok === true) {
+                        showTransientMessage(t.groqKeyValidated)
+                        window.dispatchEvent(new CustomEvent('groq-api-key-updated'))
+                        setNewApiKey('')
+                      }
+                    } catch (e) {
+                      console.error('Error saving API key:', e)
+                    } finally {
+                      setIsSavingApiKey(false)
+                    }
+                  }}
+                  disabled={isSavingApiKey || !newApiKey.trim()}
+                  className="w-full px-4 py-3 rounded-lg bg-blue-600 disabled:opacity-50 hover:bg-blue-500 transition-colors"
+                >
+                  {isSavingApiKey ? t.saving : t.save}
+                </button>
+              </>
+            )}
 
             {/* Advanced ASR is always enabled in Electron; no toggle */}
-
-
           </div>
-          
-          {sourceLanguage && (
-            <div className="flex flex-col items-center mt-2">
-              <button
-                onClick={startListening}
-                className="px-8 py-4 rounded-full text-lg font-bold bg-gray-800 text-white shadow-lg hover:bg-gray-700 transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-opacity-50"
-              >
-                {t.startListening}
-              </button>
-              <div className="mt-4 text-gray-400 flex justify-center items-center">
-                <Link 
-                  to={cssCustomizerLinkWithSession}
-                  target="_blank"
-                  className="flex items-center gap-2 hover:text-white transition-colors text-sm"
-                >
-                  <span>{t.customizeObsStyling}</span>
-                </Link>
-              </div>
-            </div>
-          )}
         </div>
       ) : (
         <div className="flex flex-col p-10 min-h-[80vh]">
@@ -892,11 +1044,11 @@ function Content() {
                 const baseUrl = window.location.origin;
                 const fullUrl = `${baseUrl}${obsLinkWithSession}`;
 
-                navigator.clipboard.writeText(fullUrl)
+                    navigator.clipboard.writeText(fullUrl)
                   .then(() => {
                     // Show subtle indication that link was copied
                     const copyIndicator = document.createElement('div');
-                    copyIndicator.textContent = 'Link copied!';
+                        copyIndicator.textContent = t.linkCopied;
                     copyIndicator.style.position = 'fixed';
                     copyIndicator.style.bottom = '20px';
                     copyIndicator.style.left = '50%';

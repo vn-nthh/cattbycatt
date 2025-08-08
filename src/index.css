@@ -14,6 +14,44 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* Hide scrollbars globally but keep content scrollable */
+html, body {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;     /* Firefox */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;             /* Chrome, Safari and Opera */
+}
+
+/* Also hide scrollbars for all scrollable elements */
+* {
+  -ms-overflow-style: none;             /* IE and Edge */
+  scrollbar-width: none;                /* Firefox */
+}
+
+*::-webkit-scrollbar {
+  display: none;                        /* Chrome, Safari and Opera */
+}
+
+/* Draggable title bar region for Electron hidden title bar */
+.titlebar-drag {
+  -webkit-app-region: drag;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px; /* match titleBarOverlay height */
+  z-index: 50;
+  background: transparent;
+}
+
+/* Ensure interactive controls remain clickable when inside drag areas */
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
 /* For the export route, override the background */
 .route-export body, 
 .route-export html {
