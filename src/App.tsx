@@ -241,9 +241,9 @@ function AppRoutes() {
 
 function MainApp() {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-950">
-      <main className="flex-1 flex items-center justify-center">
-        <div className="w-full max-w-3xl mx-auto">
+    <div className="h-screen flex flex-col bg-gray-950">
+      <main className="flex-1 flex">
+        <div className="w-full h-full">
           <Content />
         </div>
       </main>
@@ -872,12 +872,12 @@ function Content() {
   }, [])
 
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl mx-auto bg-gray-950/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-800/30">
+    <div className="flex flex-col h-full min-h-full w-full bg-gray-950/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-800/30">
       <div className="titlebar-drag"></div>
       {hasApiKey === null ? (
         <div className="flex items-center justify-center p-12 text-gray-400">{t.loading}</div>
       ) : !isStarted ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-10 min-h-[80vh] items-center">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-10 h-full min-h-full items-center">
           <div className="flex flex-col justify-center self-center">
             <div className="mb-4">
               <h1 className="text-4xl font-bold text-white text-shadow mb-2">{t.appTitle}</h1>
@@ -1004,7 +1004,7 @@ function Content() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col p-10 min-h-[80vh]">
+        <div className="flex flex-col p-10 h-full min-h-full">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
               <h2 className="text-2xl font-bold text-white text-shadow">{t.console}</h2>
