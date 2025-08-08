@@ -4,11 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "convex dev --once && node setup.mjs && npm-run-all --parallel dev:frontend dev:backend",
-    "dev:frontend": "vite --open",
+    "dev": "convex dev --once && node setup.mjs && npm-run-all --parallel dev:frontend dev:backend dev:electron",
+    "dev:frontend": "vite",
     "dev:backend": "convex dev",
+    "dev:electron": "wait-on http://localhost:5173 && electron .",
     "lint": "tsc -p convex -noEmit --pretty false && tsc -p . -noEmit --pretty false && convex dev --once && vite build",
-    "build": "vite build"
+    "build": "vite build",
+    "start": "electron .",
+    "build:electron": "vite build && electron ."
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.80",
@@ -16,6 +19,7 @@
     "clsx": "^2.1.1",
     "convex": "1.21.1-alpha.1",
     "groq-sdk": "^0.29.0",
+    "keytar": "^7.9.0",
     "openai": "^4.97.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -37,6 +41,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "~10",
     "dotenv": "^16.4.7",
+    "electron": "^31.7.7",
     "eslint": "^9.21.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.19",
@@ -48,6 +53,8 @@
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
     "vite": "^6.2.0",
-    "vitest": "^3.1.4"
-  }
+    "vitest": "^3.1.4",
+    "wait-on": "^8.0.4"
+  },
+  "main": "electron/main.js"
 }

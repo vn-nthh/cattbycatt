@@ -43,7 +43,7 @@ window.addEventListener('message', async (message) => {
     host: true,
     port: 5173,
     strictPort: true,
-    open: true,
+    open: false,
     cors: true,
     // For SPA routing
     proxy: {},
@@ -56,5 +56,6 @@ window.addEventListener('message', async (message) => {
     port: 5173,
   },
   // Enable history API fallback for SPA routing
-  base: '/',
+  // In packaged Electron, use relative base to work with file:// protocol
+  base: process.env.ELECTRON === 'true' ? './' : '/',
 }));

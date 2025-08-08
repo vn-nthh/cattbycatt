@@ -25,6 +25,8 @@ if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
+// Do not mirror API key in localStorage anymore when running in Electron.
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ConvexAuthProvider client={convex}>

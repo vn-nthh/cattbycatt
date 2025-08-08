@@ -61,7 +61,7 @@ export const translateText = action({
 // Helper function to translate using Groq OpenAI OSS 20B
 async function translateWithGroq(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
   try {
-    const groqApiKey = process.env.GROQ_API_KEY;
+    const groqApiKey = process.env.GROQ_API_KEY || (globalThis as any).GROQ_API_KEY_FROM_CLIENT;
     if (!groqApiKey) {
       console.error('GROQ_API_KEY environment variable is not set');
       return text;

@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
 import ServerExportView from "./components/ServerExportView";
 import CSSCustomizer from "./components/CSSCustomizer";
+import ApiKeyScreen from "./components/ApiKeyScreen";
 import { getSessionId } from "./lib/session";
 import { MicVAD } from "@ricky0123/vad-web";
 
@@ -39,7 +40,6 @@ interface MainAppTranslations {
   selectLanguage: string;
   
   // Settings
-  useGptTranslation: string;
   useAdvancedAsr: string;
   
   // Actions
@@ -65,7 +65,6 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     appSubtitle: "Real-time Captioning And Translating Tool",
     chooseLanguage: "Choose Your Language",
     selectLanguage: "Select Language",
-    useGptTranslation: "Use GPT-4 Nano for translation",
     useAdvancedAsr: "Use Advanced ASR",
     startListening: "Start Listening",
     customizeObsStyling: "🎨 Customize OBS Styling",
@@ -82,17 +81,12 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     appSubtitle: "リアルタイム字幕・翻訳ツール",
     chooseLanguage: "言語を選択",
     selectLanguage: "言語を選択",
-    useGptTranslation: "翻訳にGPT-4 Nanoを使用",
-    longTextChunking: "長文チャンク化アルゴリズム（実験的）",
     useAdvancedAsr: "高度なASRを使用",
     startListening: "聞き取り開始",
     customizeObsStyling: "🎨 OBSスタイルをカスタマイズ",
     console: "コンソール",
     stopAndReset: "停止してリセット",
     listening: "聞き取り中...",
-    processing: "処理中...",
-    punctuationActive: "句読点処理が有効",
-    incomplete: "未完了",
     original: "原文",
     openObsView: "OBSリンクをコピー",
     customizeObs: "🎨 OBSをカスタマイズ"
@@ -103,17 +97,12 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     appSubtitle: "실시간 자막 및 번역 도구",
     chooseLanguage: "언어 선택",
     selectLanguage: "언어 선택",
-    useGptTranslation: "번역에 GPT-4 Nano 사용",
-    longTextChunking: "긴 텍스트 청킹 알고리즘 (실험적)",
     useAdvancedAsr: "고급 ASR 사용",
     startListening: "듣기 시작",
     customizeObsStyling: "🎨 OBS 스타일 사용자 지정",
     console: "콘솔",
     stopAndReset: "정지 및 재설정",
     listening: "듣는 중...",
-    processing: "처리 중...",
-    punctuationActive: "구두점 처리 활성화",
-    incomplete: "미완료",
     original: "원본",
     openObsView: "OBS 링크 복사",
     customizeObs: "🎨 OBS 사용자 지정"
@@ -215,11 +204,30 @@ function MainApp() {
 }
 
 function Content() {
+  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null)
   const [sourceLanguage, setSourceLanguage] = useState("");
   const [isStarted, setIsStarted] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
-  const [useGpt, setUseGpt] = useState(false);
-  const [useAdvancedAsr, setUseAdvancedAsr] = useState(false);
+  // Removed GPT-4 Nano option; always use Groq path
+  // Electron app only supports Advanced ASR; always true in Electron
+  const [useAdvancedAsr] = useState(() => {
+    try {
+      // Prefer preload flag when present
+      // @ts-ignore
+      if (typeof window !== 'undefined') {
+        // Electron preload or URL flag
+        // @ts-ignore
+        if (window.electron?.isElectron) return true;
+        if (typeof window !== 'undefined' && window.location?.search?.includes('electron=1')) return true;
+      }
+      // Fallback to process.versions check if available
+      // @ts-ignore
+      if (typeof process !== 'undefined' && process.versions?.electron) return true;
+      return false;
+    } catch {
+      return false;
+    }
+  });
 
 
 
@@ -264,6 +272,33 @@ function Content() {
   // Local state for transcript and translations
   const [transcript, setTranscript] = useState<string>("");
   const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>(
+    () => localStorage.getItem('preferredMicDeviceId') || ''
+  );
+
+  useEffect(() => {
+    const loadDevices = async () => {
+      try {
+        if (!navigator.mediaDevices?.enumerateDevices) return;
+        // Ensure permission prompt so labels populate
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const mics = devices.filter(d => d.kind === 'audioinput');
+        setAudioDevices(mics);
+        if (!selectedDeviceId && mics[0]) setSelectedDeviceId(mics[0].deviceId);
+      } catch (err) {
+        console.error('Failed to enumerate devices', err);
+      }
+    };
+    loadDevices();
+    navigator.mediaDevices?.addEventListener?.('devicechange', loadDevices);
+    return () => navigator.mediaDevices?.removeEventListener?.('devicechange', loadDevices);
+  }, []);
+
+  useEffect(() => {
+    if (selectedDeviceId) localStorage.setItem('preferredMicDeviceId', selectedDeviceId);
+  }, [selectedDeviceId]);
 
   // Update to use the Convex mutation to store transcriptions
   const storeTranscription = useMutation(api.transcription.storeTranscription);
@@ -311,14 +346,29 @@ function Content() {
     try {
       setVadStatus('listening');
       
+      // If a preferred microphone is stored, build a stream using it
+      const preferredDeviceId = localStorage.getItem('preferredMicDeviceId') || selectedDeviceId || undefined;
+      let stream: MediaStream | undefined = undefined;
+      if (preferredDeviceId) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: { deviceId: { exact: preferredDeviceId } },
+          });
+        } catch (e) {
+          console.warn('Failed to get stream for selected device, falling back to default mic', e);
+        }
+      }
+
       const vad = await MicVAD.new({
+        // If we have a pre-selected stream, use it; otherwise MicVAD will prompt
+        stream,
         preSpeechPadFrames: 10,
         positiveSpeechThreshold: 0.5,
         negativeSpeechThreshold: 0.35,
         redemptionFrames: 8,
         frameSamples: 1536,
         minSpeechFrames: 4,
-        minSilenceFrames: 10,
+        // Use maxIntermittentSilenceFrames when available; omit unknown option to satisfy types
         onSpeechStart: () => {
           console.log('[VAD] Speech started');
           setVadStatus('speaking');
@@ -392,7 +442,7 @@ function Content() {
                         text: result.text.trim(),
                         sourceLanguage,
                         targetLanguage: targetLang,
-                        useGpt,
+                        useGpt: false,
                       }).then(translation => ({ lang: targetLang, translation }))
                     )
                   );
@@ -549,7 +599,7 @@ function Content() {
                     text: finalTranscript.trim(),
                     sourceLanguage,
                     targetLanguage: targetLang,
-                    useGpt,
+                    useGpt: false,
                   }).then(translation => ({ lang: targetLang, translation }))
                 )
               );
@@ -600,7 +650,10 @@ function Content() {
       if (shouldKeepListeningRef.current && isStarted) {
         setTimeout(() => {
           try {
-            recognitionInstance.start();
+            // Guard against double-start by creating a fresh instance
+            if (recognitionInstance && (recognitionInstance as any).state !== 'running') {
+              recognitionInstance.start();
+            }
           } catch (error) {
             console.error("Error restarting recognition:", error);
           }
@@ -615,8 +668,6 @@ function Content() {
       recognitionInstance.start();
     } catch (error) {
       console.error("Error starting recognition:", error);
-  // Update the OBS link generation to include the session ID
-  const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}`;
     }
     
     // Cleanup on unmount or when dependencies change
@@ -628,7 +679,7 @@ function Content() {
         console.error("Error stopping recognition:", e);
       }
     };
-  }, [sourceLanguage, isStarted, useGpt, useAdvancedAsr, translateText, transcribeWithGroq]);
+  }, [sourceLanguage, isStarted, useAdvancedAsr, translateText, transcribeWithGroq]);
 
   // Start/stop listening
   const startListening = () => {
@@ -672,7 +723,7 @@ function Content() {
     currentTranscriptRef.current = "";
   };
 
-  const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}`;
+  const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}`;
   
   // Also create CSS Customizer link with session ID
   const cssCustomizerLinkWithSession = `/css-customizer?session=${sessionIdRef.current}&source=${sourceLanguage}`;
@@ -680,13 +731,64 @@ function Content() {
   // Always display raw transcript for real-time viewing, punctuation works behind the scenes
   const displayTranscript = transcript;
 
+  // Load API key on mount
+  useEffect(() => {
+    let mounted = true
+    const checkApiKey = async () => {
+      try {
+        // @ts-ignore
+        const key: string | null = await window.electron?.getApiKey?.()
+        console.log('Checking API key:', !!key)
+        if (!mounted) return
+        setHasApiKey(!!key)
+      } catch (e) {
+        console.error('Error checking API key:', e)
+        setHasApiKey(false)
+      }
+    }
+    
+    checkApiKey()
+    
+    const onUpdated = () => {
+      console.log('API key updated event received')
+      checkApiKey()
+    }
+    window.addEventListener('groq-api-key-updated', onUpdated as EventListener)
+    
+    return () => { 
+      mounted = false
+      window.removeEventListener('groq-api-key-updated', onUpdated as EventListener)
+    }
+  }, [])
+
   return (
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto bg-gray-950/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-800/30">
-      {!isStarted ? (
+      {hasApiKey === null ? (
+        <div className="flex items-center justify-center p-12 text-gray-400">Loading…</div>
+      ) : !hasApiKey ? (
+        <ApiKeyScreen />
+      ) : !isStarted ? (
         <div className="flex flex-col items-center justify-center gap-8 p-10 text-center min-h-[80vh]">
           <div className="mb-4">
             <h1 className="text-4xl font-bold text-white text-shadow mb-2">{t.appTitle}</h1>
             <p className="text-xl text-gray-400 text-shadow">{t.appSubtitle}</p>
+          </div>
+          <div className="flex justify-center">
+            <button
+              onClick={async () => {
+                try {
+                  // @ts-ignore
+                  const ok = await window.electron?.deleteApiKey?.()
+                  if (ok) setHasApiKey(false)
+                } catch (e) {
+                  console.error('Failed to delete API key', e)
+                }
+              }}
+              className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-900/30 text-gray-400 hover:bg-gray-900/50 hover:text-white transition-all"
+              title="Change API key"
+            >
+              <span>🔑 Change API Key</span>
+            </button>
           </div>
           
           <div className="w-full max-w-xs bg-gray-900/70 backdrop-blur-sm p-6 rounded-xl shadow-inner border border-gray-800/30">
@@ -710,34 +812,23 @@ function Content() {
               ))}
             </select>
             
-            {/* Advanced ASR Toggle */}
-            <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors mb-4">
-              <span>{t.useAdvancedAsr}</span>
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={useAdvancedAsr}
-                  onChange={(e) => setUseAdvancedAsr(e.target.checked)}
-                  className="sr-only"
-                />
-                <div className={`w-12 h-6 rounded-full ${useAdvancedAsr ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
-                <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${useAdvancedAsr ? 'translate-x-6' : ''}`}></div>
-              </div>
+            {/* Microphone Picker */}
+            <label className="flex flex-col text-left mb-4 text-white">
+              <span className="mb-2">Microphone</span>
+              <select
+                className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md hover:bg-gray-750 focus:ring-2 focus:ring-gray-600 focus:outline-none"
+                value={selectedDeviceId}
+                onChange={(e) => setSelectedDeviceId(e.target.value)}
+              >
+                {audioDevices.map(d => (
+                  <option key={d.deviceId} value={d.deviceId}>{d.label || 'Microphone'}</option>
+                ))}
+              </select>
             </label>
 
-            <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors mb-4">
-              <span className="text-left">{t.useGptTranslation}</span>
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={useGpt}
-                  onChange={(e) => setUseGpt(e.target.checked)}
-                  className="sr-only"
-                />
-                <div className={`w-12 h-6 rounded-full ${useGpt ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
-                <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${useGpt ? 'translate-x-6' : ''}`}></div>
-              </div>
-            </label>
+            {/* Advanced ASR is always enabled in Electron; no toggle */}
+
+
           </div>
           
           {sourceLanguage && (
