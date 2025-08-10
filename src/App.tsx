@@ -7,6 +7,7 @@ import ServerExportView from "./components/ServerExportView";
 import CSSCustomizer from "./components/CSSCustomizer";
 import { getSessionId } from "./lib/session";
 import { MicVAD } from "@ricky0123/vad-web";
+import { transcribeOffline, translateOffline } from "./lib/offline";
 
 // Suppress ONNX Runtime warnings about unused initializers
 if (typeof window !== 'undefined') {
@@ -40,6 +41,9 @@ interface MainAppTranslations {
   selectLanguage: string;
   chooseLangNext: string;
   setKeyFirst: string;
+  setKeyFirstTitle: string;
+  getGroqKeyHelpBefore: string;
+  getGroqKeyHelpAfter: string;
   
   // Settings
   useAdvancedAsr: string;
@@ -81,6 +85,9 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     selectLanguage: "Select Language",
     chooseLangNext: "Next, choose a language",
     setKeyFirst: "First, set a Groq API key.",
+    setKeyFirstTitle: "First, you'll need a Groq API key.",
+    getGroqKeyHelpBefore: "No Groq key yet? Visit",
+    getGroqKeyHelpAfter: "to get your key — it's free, no card required.",
     useAdvancedAsr: "Use Advanced ASR",
     startListening: "Start Listening",
     customizeObsStyling: "🎨 Customize OBS Styling",
@@ -109,6 +116,9 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     selectLanguage: "言語を選択",
     chooseLangNext: "次に、言語を選択してください",
     setKeyFirst: "まず、Groq API キーを設定してください。",
+    setKeyFirstTitle: "まず、Groq API キーが必要です。",
+    getGroqKeyHelpBefore: "まだ Groq のキーがありませんか？ 次のサイトへ",
+    getGroqKeyHelpAfter: "でキーを取得できます。クレジットカード不要・無料です。",
     useAdvancedAsr: "高度なASRを使用",
     startListening: "聞き取り開始",
     customizeObsStyling: "🎨 OBSスタイルをカスタマイズ",
@@ -137,6 +147,9 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     selectLanguage: "언어 선택",
     chooseLangNext: "다음으로 언어를 선택하세요",
     setKeyFirst: "먼저 Groq API 키를 설정하세요.",
+    setKeyFirstTitle: "먼저 Groq API 키가 필요합니다.",
+    getGroqKeyHelpBefore: "아직 Groq 키가 없나요?",
+    getGroqKeyHelpAfter: "에서 키를 발급받을 수 있어요. 무료이며 카드 정보가 필요하지 않습니다.",
     useAdvancedAsr: "고급 ASR 사용",
     startListening: "듣기 시작",
     customizeObsStyling: "🎨 OBS 스타일 사용자 지정",
@@ -278,6 +291,12 @@ function Content() {
     }
   });
 
+  // Offline model selection
+  const [useOffline, setUseOffline] = useState(() => localStorage.getItem('useOffline') === '1')
+  const [offlineDir, setOfflineDir] = useState<string>(() => localStorage.getItem('offlineDir') || '')
+  const [isDownloadingModels, setIsDownloadingModels] = useState(false)
+  const [hasOfflineModels, setHasOfflineModels] = useState<boolean | null>(null)
+
 
 
   // Advanced ASR state
@@ -293,8 +312,13 @@ function Content() {
   // Helper function to get current translations with fallback
   const t = mainAppTranslations[uiLanguage] || mainAppTranslations.en;
 
+  // Offline readiness and start gating
+  const offlineReady = useOffline && !!offlineDir && hasOfflineModels === true
+  const canShowStart = ((useOffline ? offlineReady : !!hasApiKey) && !!sourceLanguage)
+  const autoProceedToStart = false // keep manual start for UX
+
   // Dynamic subtitle based on setup progress
-  const subtitle = !hasApiKey
+  const subtitle = (!useOffline && !hasApiKey)
     ? "First, set a Groq API key."
     : !sourceLanguage
     ? "Next, choose a language"
@@ -488,50 +512,60 @@ function Content() {
               throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB. Please speak for shorter periods.`);
             }
             
-            // GROQ-DEBUG-START
-            console.time('⏱️ GROQ-REQUEST-TIME');
-            console.log('🚀 Sending request to Groq API:', {
-              language: sourceLanguage,
-              sessionId: sessionIdRef.current,
-              audioSize: wavBuffer.byteLength
-            });
-            // GROQ-DEBUG-END
-
-            const result = await transcribeWithGroq({
-              audioBlob: wavBuffer, // Pass ArrayBuffer directly, not Uint8Array
-              language: sourceLanguage,
-              sessionId: sessionIdRef.current,
-            });
-
-            // GROQ-DEBUG-START
-            console.timeEnd('⏱️ GROQ-REQUEST-TIME');
-            console.log('✅ Groq API response:', {
-              success: !!result,
-              hasText: !!result?.text.trim(),
-              textLength: result?.text.length || 0,
-              firstChars: result?.text.slice(0, 30) + '...',
-            });
-            // GROQ-DEBUG-END
+            let finalText = ''
+            if (useOffline) {
+              // Prefer Electron main process; fallback to in-renderer transformers
+              if (!offlineDir) throw new Error('Offline model directory not set')
+              try {
+                // @ts-ignore
+                const resp = await window.electron?.offlineTranscribe?.({ audio, sampleRate: 16000, dir: offlineDir })
+                if (!resp?.ok) throw new Error(resp?.error || 'Offline transcribe failed')
+                finalText = resp.text
+              } catch (err) {
+                console.warn('[Offline] Falling back to renderer ASR:', err)
+                const offline = await transcribeOffline({ audio, sampleRate: 16000, cacheDir: offlineDir })
+                finalText = offline.text
+              }
+            } else {
+              // GROQ path
+              console.time('⏱️ GROQ-REQUEST-TIME');
+              const result = await transcribeWithGroq({
+                audioBlob: wavBuffer,
+                language: sourceLanguage,
+                sessionId: sessionIdRef.current,
+              });
+              console.timeEnd('⏱️ GROQ-REQUEST-TIME');
+              finalText = result.text
+            }
             
-            if (result.text.trim()) {
-              setTranscript(result.text);
-              currentTranscriptRef.current = result.text;
+            if (finalText.trim()) {
+              setTranscript(finalText);
+              currentTranscriptRef.current = finalText;
               
               
               // Translate the result text
-              if (result.text.trim()) {
+              if (finalText.trim()) {
                 const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
                 
                 try {
                   const translationsResult = await Promise.all(
-                    targetLanguages.map(targetLang =>
-                      translateText({
-                        text: result.text.trim(),
-                        sourceLanguage,
-                        targetLanguage: targetLang,
-                        useGpt: false,
-                      }).then(translation => ({ lang: targetLang, translation }))
-                    )
+                    targetLanguages.map(targetLang => (async () => {
+                      if (useOffline) {
+                        if (!offlineDir) throw new Error('Offline model directory not set')
+                        try {
+                          // @ts-ignore
+                          const resp = await window.electron?.offlineTranslate?.({ text: finalText.trim(), sourceLanguage, targetLanguage: targetLang, dir: offlineDir })
+                          if (!resp?.ok) throw new Error(resp?.error || 'Offline translate failed')
+                          return { lang: targetLang, translation: resp.translation }
+                        } catch (err) {
+                          console.warn('[Offline] Falling back to renderer translation:', err)
+                          const t = await translateOffline({ text: finalText.trim(), sourceLanguage, targetLanguage: targetLang, cacheDir: offlineDir })
+                          return { lang: targetLang, translation: t }
+                        }
+                      }
+                      const translation = await translateText({ text: finalText.trim(), sourceLanguage, targetLanguage: targetLang, useGpt: false })
+                      return { lang: targetLang, translation }
+                    })())
                   );
                   
                   const newTranslations = translationsResult.reduce(
@@ -548,8 +582,8 @@ function Content() {
                 }
               }
             }
-          } catch (error) {
-            console.error("Groq transcription error:", error);
+            } catch (error) {
+            console.error("Transcription error:", error);
           } finally {
             setVadStatus('listening');
             isSpeakingRef.current = false;
@@ -793,6 +827,7 @@ function Content() {
 
   // Start/stop listening
   const startListening = () => {
+    if (!canShowStart) return
     setIsStarted(true);
   };
 
@@ -871,10 +906,18 @@ function Content() {
     }
   }, [])
 
+  // On mount, restore offline preferences only (no validation here)
+  useEffect(() => {
+    const savedDir = localStorage.getItem('offlineDir') || ''
+    const savedUse = localStorage.getItem('useOffline') === '1'
+    if (savedDir) setOfflineDir(savedDir)
+    if (savedUse) setUseOffline(true)
+  }, [])
+
   return (
     <div className="flex flex-col h-full min-h-full w-full bg-gray-950/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-800/30">
       <div className="titlebar-drag"></div>
-      {hasApiKey === null ? (
+      {hasApiKey === null && !useOffline ? (
         <div className="flex items-center justify-center p-12 text-gray-400">{t.loading}</div>
       ) : !isStarted ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-10 h-full min-h-full items-center">
@@ -884,7 +927,7 @@ function Content() {
               <p className="text-xl text-gray-400 text-shadow">{t.appSubtitle}</p>
             </div>
 
-            {hasApiKey && sourceLanguage ? (
+            {canShowStart ? (
               <div className="flex flex-col items-start mt-2">
                 <button
                   onClick={startListening}
@@ -903,12 +946,20 @@ function Content() {
                   <button
                     onClick={async () => {
                       try {
+                        // Try to delete, but proceed regardless of result
                         // @ts-ignore
-                        const ok = await window.electron?.deleteApiKey?.()
-                        if (ok) setHasApiKey(false)
+                        await window.electron?.deleteApiKey?.()
                       } catch (e) {
                         console.error('Failed to delete API key', e)
                       }
+                      setHasApiKey(false)
+                      setUseOffline(false)
+                      setIsStarted(false)
+                      setSourceLanguage('')
+                      localStorage.removeItem('useOffline')
+                      setNewApiKey('')
+                      // Notify listeners to re-check
+                      window.dispatchEvent(new CustomEvent('groq-api-key-updated'))
                     }}
                     className="mt-3 flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm"
                     title={t.changeApiKey}
@@ -918,15 +969,46 @@ function Content() {
                 </div>
               </div>
             ) : (
-              <div className="text-gray-400 mt-2">{!hasApiKey ? t.setKeyFirst : t.chooseLangNext}</div>
+              <div className="text-gray-400 mt-2">
+                {(!hasApiKey && !useOffline) ? (
+                  <>
+                    <div>{t.setKeyFirstTitle}</div>
+                    <div className="mt-1">
+                      {t.getGroqKeyHelpBefore} {" "}
+                      <a href="https://console.groq.com/" target="_blank" rel="noreferrer" className="underline hover:text-white no-drag">console.groq.com</a>{" "}
+                      {t.getGroqKeyHelpAfter}
+                      <div className="mt-2 text-xs">
+                        <button className="underline hover:text-white" onClick={() => setUseOffline(true)}>
+                          Use an offline model instead
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>{t.chooseLangNext}</div>
+                    {useOffline && !offlineReady && (
+                      <div className="mt-2 text-xs">
+                        <button
+                          className="underline hover:text-white"
+                          onClick={() => {
+                            setUseOffline(false)
+                            setHasApiKey(false)
+                          }}
+                        >{t.changeApiKey}</button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             )}
           </div>
 
           <div className="w-full max-w-md md:max-w-none bg-gray-900/70 backdrop-blur-sm p-6 rounded-xl shadow-inner border border-gray-800/30 self-center h-auto min-h-[260px]">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-white">{!hasApiKey ? t.groqApiKey : t.chooseLanguage}</h2>
+              <h2 className="text-xl font-semibold text-white">{(!hasApiKey && !useOffline) ? t.groqApiKey : t.chooseLanguage}</h2>
             </div>
-            {hasApiKey ? (
+            {(hasApiKey || offlineReady) ? (
               <>
                 <select
                   className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md transition-all hover:bg-gray-750 focus:ring-2 focus:ring-gray-600 focus:outline-none mb-4"
@@ -959,44 +1041,111 @@ function Content() {
               </>
             ) : (
               <>
-                <input
-                  className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md transition-all focus:ring-2 focus:ring-gray-600 focus:outline-none mb-4"
-                  type="password"
-                  placeholder="sk_groq_..."
-                  value={newApiKey}
-                  onChange={(e) => setNewApiKey(e.target.value)}
-                />
-                <button
-                  onClick={async () => {
-                    const trimmed = newApiKey.trim()
-                    if (!trimmed) return
-                    setIsSavingApiKey(true)
-                    try {
-                      // Validate before saving
-                      // @ts-ignore
-                      const valid = await window.electron?.validateApiKey?.(trimmed)
-                      if (!valid) {
-                        showTransientMessage(t.invalidGroqKey)
-                        return
-                      }
-                      // @ts-ignore
-                      const ok = await window.electron?.setApiKey?.(trimmed)
-                      if (ok === true) {
-                        showTransientMessage(t.groqKeyValidated)
-                        window.dispatchEvent(new CustomEvent('groq-api-key-updated'))
-                        setNewApiKey('')
-                      }
-                    } catch (e) {
-                      console.error('Error saving API key:', e)
-                    } finally {
-                      setIsSavingApiKey(false)
-                    }
-                  }}
-                  disabled={isSavingApiKey || !newApiKey.trim()}
-                  className="w-full px-4 py-3 rounded-lg bg-blue-600 disabled:opacity-50 hover:bg-blue-500 transition-colors"
-                >
-                  {isSavingApiKey ? t.saving : t.save}
-                </button>
+                {!useOffline ? (
+                  <>
+                    <input
+                      className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md transition-all focus:ring-2 focus:ring-gray-600 focus:outline-none mb-4"
+                      type="password"
+                      placeholder="sk_groq_..."
+                      value={newApiKey}
+                      onChange={(e) => setNewApiKey(e.target.value)}
+                    />
+                    <button
+                      onClick={async () => {
+                        const trimmed = newApiKey.trim()
+                        if (!trimmed) return
+                        setIsSavingApiKey(true)
+                        try {
+                          // Validate before saving
+                          // @ts-ignore
+                          const valid = await window.electron?.validateApiKey?.(trimmed)
+                          if (!valid) {
+                            showTransientMessage(t.invalidGroqKey)
+                            return
+                          }
+                          // @ts-ignore
+                          const ok = await window.electron?.setApiKey?.(trimmed)
+                          if (ok === true) {
+                            showTransientMessage(t.groqKeyValidated)
+                            window.dispatchEvent(new CustomEvent('groq-api-key-updated'))
+                            setNewApiKey('')
+                          }
+                        } catch (e) {
+                          console.error('Error saving API key:', e)
+                        } finally {
+                          setIsSavingApiKey(false)
+                        }
+                      }}
+                      disabled={isSavingApiKey || !newApiKey.trim()}
+                      className="w-full px-4 py-3 rounded-lg bg-blue-600 disabled:opacity-50 hover:bg-blue-500 transition-colors"
+                    >
+                      {isSavingApiKey ? t.saving : t.save}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-3">
+                      <div className="text-sm text-gray-300">Choose a folder to store models (several hundred MB):</div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm"
+                          placeholder="Model directory"
+                          value={offlineDir}
+                          onChange={(e) => setOfflineDir(e.target.value)}
+                        />
+                        <button
+                          className="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+                          onClick={async () => {
+                            // @ts-ignore
+                            const dir = await window.electron?.chooseDirectory?.()
+                            if (dir) setOfflineDir(dir)
+                          }}
+                        >Browse</button>
+                      </div>
+                       <button
+                        className="w-full px-4 py-3 rounded-lg bg-blue-600 disabled:opacity-50 hover:bg-blue-500 transition-colors"
+                        disabled={!offlineDir || isDownloadingModels}
+                        onClick={async () => {
+                          if (!offlineDir) return
+                          setIsDownloadingModels(true)
+                          // Persist settings
+                          localStorage.setItem('offlineDir', offlineDir)
+                          localStorage.setItem('useOffline', '1')
+                          try {
+                          // @ts-ignore
+                            const has = await window.electron?.hasOfflineModels?.(offlineDir)
+                          if (!has) {
+                            // @ts-ignore
+                            await window.electron?.prepareOfflineModels?.(offlineDir)
+                          }
+                            // Validate models before enabling start
+                            // @ts-ignore
+                            const validated = await window.electron?.validateOfflineModels?.(offlineDir)
+                            if (!validated?.ok) throw new Error(validated?.error || 'Model validation failed')
+                            // Warm models via main process; renderer loads on first use
+                            setHasOfflineModels(true)
+                            setUseOffline(true)
+                            // If no language yet, default to stored UI language or English
+                            if (!sourceLanguage) {
+                              const pref = localStorage.getItem('language') || 'en'
+                              setSourceLanguage(pref)
+                              updateUILanguageFromSource(pref)
+                            }
+                            showTransientMessage('Models ready')
+                            // Proceed to main console immediately
+                            setIsStarted(true)
+                          } catch (e) {
+                            console.error('Download/preload failed', e)
+                            setHasOfflineModels(false)
+                          } finally {
+                            setIsDownloadingModels(false)
+                          }
+                        }}
+                      >{isDownloadingModels ? 'Preparing…' : 'Download & Use Offline'}</button>
+                        {/* Change API Key link lives above under description; removed duplicate here */}
+                    </div>
+                  </>
+                )}
               </>
             )}
 
