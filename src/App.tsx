@@ -52,6 +52,9 @@ interface MainAppTranslations {
   startListening: string;
   customizeObsStyling: string;
   changeApiKey: string;
+  offlineSetupNext: string;
+  offlineBackToApiKey: string;
+  configureKeyOrModel: string;
   
   // Console page
   console: string;
@@ -62,11 +65,20 @@ interface MainAppTranslations {
   original: string;
   inputDevice: string;
   microphone: string;
+  offlineModelDirectory: string;
   
   // Links
   openObsView: string;
   customizeObs: string;
   linkCopied: string;
+  useOfflineInstead: string;
+  chooseModelFolderHelp: string;
+  modelDirectoryPlaceholder: string;
+  browse: string;
+  modelsReady: string;
+  preparing: string;
+  downloadUseOffline: string;
+  apiKeyPlaceholder: string;
 
   // API key flow
   groqApiKey: string;
@@ -92,15 +104,27 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     startListening: "Start Listening",
     customizeObsStyling: "🎨 Customize OBS Styling",
     changeApiKey: "🔑 Change API Key",
+    offlineSetupNext: "Next, choose a model directory",
+    offlineBackToApiKey: "🔑 Go back to use API Key",
+    configureKeyOrModel: "🔑 Configure your key/model",
     console: "Console",
     stopAndReset: "Stop & Reset",
     listening: "Listening...",
     original: "Original",
     inputDevice: "Input device",
     microphone: "Microphone",
+    offlineModelDirectory: "Offline Model Directory",
     openObsView: "Copy OBS Link",
     customizeObs: "🎨 Customize OBS",
     linkCopied: "Link copied!",
+    useOfflineInstead: "📦 Use an offline model instead",
+    chooseModelFolderHelp: "Choose a folder to store models (several hundred MB):",
+    modelDirectoryPlaceholder: "Model directory",
+    browse: "Browse",
+    modelsReady: "Models ready",
+    preparing: "Preparing…",
+    downloadUseOffline: "Download & Use Offline",
+    apiKeyPlaceholder: "sk_groq_...",
     groqApiKey: "Groq API Key",
     invalidGroqKey: "Invalid Groq API key",
     groqKeyValidated: "Groq API Validated",
@@ -123,15 +147,27 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     startListening: "聞き取り開始",
     customizeObsStyling: "🎨 OBSスタイルをカスタマイズ",
     changeApiKey: "🔑 APIキーを変更",
+    offlineSetupNext: "次に、モデルのディレクトリを選択してください",
+    offlineBackToApiKey: "🔑 APIキーの使用に戻る",
+    configureKeyOrModel: "🔑 キー/モデルを設定",
     console: "コンソール",
     stopAndReset: "停止してリセット",
     listening: "聞き取り中...",
     original: "原文",
     inputDevice: "入力デバイス",
     microphone: "マイク",
+    offlineModelDirectory: "オフラインモデルのディレクトリ",
     openObsView: "OBSリンクをコピー",
     customizeObs: "🎨 OBSをカスタマイズ",
     linkCopied: "リンクをコピーしました！",
+    useOfflineInstead: "📦 オフラインモデルを使用する",
+    chooseModelFolderHelp: "モデルを保存するフォルダを選択してください（数百MB）:",
+    modelDirectoryPlaceholder: "モデルのディレクトリ",
+    browse: "参照",
+    modelsReady: "モデルの準備ができました",
+    preparing: "準備中…",
+    downloadUseOffline: "ダウンロードしてオフラインで使用",
+    apiKeyPlaceholder: "sk_groq_...",
     groqApiKey: "Groq APIキー",
     invalidGroqKey: "無効な Groq API キーです",
     groqKeyValidated: "Groq API キーを確認しました",
@@ -154,15 +190,27 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     startListening: "듣기 시작",
     customizeObsStyling: "🎨 OBS 스타일 사용자 지정",
     changeApiKey: "🔑 API 키 변경",
+    offlineSetupNext: "다음으로 모델 디렉터리를 선택하세요",
+    offlineBackToApiKey: "🔑 API 키 사용으로 돌아가기",
+    configureKeyOrModel: "🔑 키/모델 구성",
     console: "콘솔",
     stopAndReset: "정지 및 재설정",
     listening: "듣는 중...",
     original: "원본",
     inputDevice: "입력 장치",
     microphone: "마이크",
+    offlineModelDirectory: "오프라인 모델 디렉터리",
     openObsView: "OBS 링크 복사",
     customizeObs: "🎨 OBS 사용자 지정",
     linkCopied: "링크가 복사되었습니다!",
+    useOfflineInstead: "📦 오프라인 모델을 대신 사용",
+    chooseModelFolderHelp: "모델을 저장할 폴더를 선택하세요(수백 MB):",
+    modelDirectoryPlaceholder: "모델 디렉터리",
+    browse: "찾아보기",
+    modelsReady: "모델 준비 완료",
+    preparing: "준비 중…",
+    downloadUseOffline: "다운로드 후 오프라인 사용",
+    apiKeyPlaceholder: "sk_groq_...",
     groqApiKey: "Groq API 키",
     invalidGroqKey: "유효하지 않은 Groq API 키입니다",
     groqKeyValidated: "Groq API 키가 확인되었습니다",
@@ -296,6 +344,8 @@ function Content() {
   const [offlineDir, setOfflineDir] = useState<string>(() => localStorage.getItem('offlineDir') || '')
   const [isDownloadingModels, setIsDownloadingModels] = useState(false)
   const [hasOfflineModels, setHasOfflineModels] = useState<boolean | null>(null)
+  // Force showing the offline setup screen even if models are already present
+  const [forceOfflineSetup, setForceOfflineSetup] = useState(false)
 
 
 
@@ -314,7 +364,7 @@ function Content() {
 
   // Offline readiness and start gating
   const offlineReady = useOffline && !!offlineDir && hasOfflineModels === true
-  const canShowStart = ((useOffline ? offlineReady : !!hasApiKey) && !!sourceLanguage)
+  const canShowStart = ((useOffline ? offlineReady && !forceOfflineSetup : !!hasApiKey) && !!sourceLanguage)
   const autoProceedToStart = false // keep manual start for UX
 
   // Dynamic subtitle based on setup progress
@@ -961,10 +1011,10 @@ function Content() {
                       // Notify listeners to re-check
                       window.dispatchEvent(new CustomEvent('groq-api-key-updated'))
                     }}
-                    className="mt-3 flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm"
-                    title={t.changeApiKey}
+                    className="mt-3 flex items-center gap-2 hover:text-white transition-colors text-sm"
+                    title={t.configureKeyOrModel}
                   >
-                    <span>{t.changeApiKey}</span>
+                    <span>{t.configureKeyOrModel}</span>
                   </button>
                 </div>
               </div>
@@ -973,29 +1023,37 @@ function Content() {
                 {(!hasApiKey && !useOffline) ? (
                   <>
                     <div>{t.setKeyFirstTitle}</div>
-                    <div className="mt-1">
+                      <div className="mt-1">
                       {t.getGroqKeyHelpBefore} {" "}
                       <a href="https://console.groq.com/" target="_blank" rel="noreferrer" className="underline hover:text-white no-drag">console.groq.com</a>{" "}
                       {t.getGroqKeyHelpAfter}
-                      <div className="mt-2 text-xs">
-                        <button className="underline hover:text-white" onClick={() => setUseOffline(true)}>
-                          Use an offline model instead
+                      <div className="mt-2">
+                        <button
+                          className="flex items-center gap-2 hover:text-white transition-colors text-sm"
+                          title={t.useOfflineInstead}
+                          onClick={() => { setUseOffline(true); setForceOfflineSetup(true) }}
+                        >
+                          <span>{t.useOfflineInstead.split(' ')[0]}</span>
+                          <span>{t.useOfflineInstead.replace(/^\S+\s*/, '')}</span>
                         </button>
                       </div>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div>{t.chooseLangNext}</div>
-                    {useOffline && !offlineReady && (
-                      <div className="mt-2 text-xs">
+                    <div>{useOffline && (!offlineReady || forceOfflineSetup) ? t.offlineSetupNext : t.chooseLangNext}</div>
+                    {useOffline && (!offlineReady || forceOfflineSetup) && (
+                      <div className="mt-2">
                         <button
-                          className="underline hover:text-white"
                           onClick={() => {
                             setUseOffline(false)
                             setHasApiKey(false)
                           }}
-                        >{t.changeApiKey}</button>
+                          className="flex items-center gap-2 hover:text-white transition-colors text-sm"
+                          title={t.offlineBackToApiKey}
+                        >
+                          <span>{t.offlineBackToApiKey}</span>
+                        </button>
                       </div>
                     )}
                   </>
@@ -1006,9 +1064,15 @@ function Content() {
 
           <div className="w-full max-w-md md:max-w-none bg-gray-900/70 backdrop-blur-sm p-6 rounded-xl shadow-inner border border-gray-800/30 self-center h-auto min-h-[260px]">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-white">{(!hasApiKey && !useOffline) ? t.groqApiKey : t.chooseLanguage}</h2>
+              <h2 className="text-xl font-semibold text-white">
+                {(!hasApiKey && !useOffline)
+                  ? t.groqApiKey
+                  : (useOffline && (!offlineReady || forceOfflineSetup))
+                  ? t.offlineModelDirectory
+                  : t.chooseLanguage}
+              </h2>
             </div>
-            {(hasApiKey || offlineReady) ? (
+            {(hasApiKey || (offlineReady && !forceOfflineSetup)) ? (
               <>
                 <select
                   className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md transition-all hover:bg-gray-750 focus:ring-2 focus:ring-gray-600 focus:outline-none mb-4"
@@ -1046,7 +1110,7 @@ function Content() {
                     <input
                       className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md transition-all focus:ring-2 focus:ring-gray-600 focus:outline-none mb-4"
                       type="password"
-                      placeholder="sk_groq_..."
+                      placeholder={t.apiKeyPlaceholder}
                       value={newApiKey}
                       onChange={(e) => setNewApiKey(e.target.value)}
                     />
@@ -1085,11 +1149,11 @@ function Content() {
                 ) : (
                   <>
                     <div className="space-y-3">
-                      <div className="text-sm text-gray-300">Choose a folder to store models (several hundred MB):</div>
+                      <div className="text-sm text-gray-300">{t.chooseModelFolderHelp}</div>
                       <div className="flex items-center gap-2">
                         <input
                           className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm"
-                          placeholder="Model directory"
+                          placeholder={t.modelDirectoryPlaceholder}
                           value={offlineDir}
                           onChange={(e) => setOfflineDir(e.target.value)}
                         />
@@ -1100,7 +1164,7 @@ function Content() {
                             const dir = await window.electron?.chooseDirectory?.()
                             if (dir) setOfflineDir(dir)
                           }}
-                        >Browse</button>
+                         >{t.browse}</button>
                       </div>
                        <button
                         className="w-full px-4 py-3 rounded-lg bg-blue-600 disabled:opacity-50 hover:bg-blue-500 transition-colors"
@@ -1131,9 +1195,9 @@ function Content() {
                               setSourceLanguage(pref)
                               updateUILanguageFromSource(pref)
                             }
-                            showTransientMessage('Models ready')
-                            // Proceed to main console immediately
-                            setIsStarted(true)
+                            showTransientMessage(t.modelsReady)
+                            // After loading or validating, go to language selection screen
+                            setForceOfflineSetup(false)
                           } catch (e) {
                             console.error('Download/preload failed', e)
                             setHasOfflineModels(false)
@@ -1141,7 +1205,7 @@ function Content() {
                             setIsDownloadingModels(false)
                           }
                         }}
-                      >{isDownloadingModels ? 'Preparing…' : 'Download & Use Offline'}</button>
+                       >{isDownloadingModels ? t.preparing : t.downloadUseOffline}</button>
                         {/* Change API Key link lives above under description; removed duplicate here */}
                     </div>
                   </>
