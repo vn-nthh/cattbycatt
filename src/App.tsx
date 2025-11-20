@@ -33,27 +33,27 @@ interface MainAppTranslations {
   // App title and description
   appTitle: string;
   appSubtitle: string;
-  
+
   // Language selection
   chooseLanguage: string;
   selectLanguage: string;
-  
+
   // Settings
   useGptTranslation: string;
   useAdvancedAsr: string;
-  
+
   // Actions
   startListening: string;
   customizeObsStyling: string;
-  
+
   // Console page
   console: string;
   stopAndReset: string;
   listening: string;
-  
+
   // Language labels
   original: string;
-  
+
   // Links
   openObsView: string;
   customizeObs: string;
@@ -76,7 +76,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     openObsView: "Copy OBS Link",
     customizeObs: "🎨 Customize OBS"
   },
-  
+
   ja: {
     appTitle: "CATT by Catt",
     appSubtitle: "リアルタイム字幕・翻訳ツール",
@@ -97,7 +97,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     openObsView: "OBSリンクをコピー",
     customizeObs: "🎨 OBSをカスタマイズ"
   },
-  
+
   ko: {
     appTitle: "CATT by Catt",
     appSubtitle: "실시간 자막 및 번역 도구",
@@ -163,6 +163,9 @@ declare global {
   }
 }
 
+// Silent audio to keep the tab active in background
+const SILENT_AUDIO_URL = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAAAAAAAAAAAAACCAAAAAAAAAAAAAA//OEMAAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEcxAAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEcyAAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEczAAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc0AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc1AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc2AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc3AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc4AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc5AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc6AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc7AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc8AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc9AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc+AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9//OEc/AAAAAAAABAAAAAAAAAAABFhAAAAAAAAAAAAAACCCMP7/vu/9';
+
 function App() {
   return (
     <Router>
@@ -173,7 +176,7 @@ function App() {
 
 function AppRoutes() {
   const location = useLocation();
-  
+
   useEffect(() => {
     // Add classes to body based on route
     if (location.pathname === '/server-export') {
@@ -181,15 +184,15 @@ function AppRoutes() {
     } else {
       document.body.classList.remove('route-export');
     }
-    
+
     return () => {
       document.body.classList.remove('route-export');
     };
   }, [location]);
-  
+
   // Determine if we should show the diagnostic
   const showDiagnostic = location.search.includes('debug=true');
-  
+
   return (
     <>
       <Routes>
@@ -239,13 +242,13 @@ function Content() {
   // Function to update UI language based on source language
   const updateUILanguageFromSource = (selectedSourceLanguage: string) => {
     let newUILanguage = 'en'; // Default to English
-    
+
     if (selectedSourceLanguage === 'ja') {
       newUILanguage = 'ja';
     } else if (selectedSourceLanguage === 'ko') {
       newUILanguage = 'ko';
     }
-    
+
     localStorage.setItem('language', newUILanguage);
     setUiLanguage(newUILanguage);
   };
@@ -253,21 +256,37 @@ function Content() {
   const translateText = useAction(api.translate.translateText);
   const transcribeWithGroq = useAction(api.groqTranscription.transcribeAudioStream);
   const sessionIdRef = useRef(getSessionId());
-  
+
   // Add ref to track if we want to keep listening (for proper cleanup)
   const shouldKeepListeningRef = useRef(false);
 
   const currentTranscriptRef = useRef<string>("");
   const isSpeakingRef = useRef<boolean>(false);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
+  // Refs for background execution and silence detection
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize silent audio
+  useEffect(() => {
+    audioRef.current = new Audio(SILENT_AUDIO_URL);
+    audioRef.current.loop = true;
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
   // Local state for transcript and translations
   const [transcript, setTranscript] = useState<string>("");
   const [translations, setTranslations] = useState<Record<string, string>>({});
 
   // Update to use the Convex mutation to store transcriptions
   const storeTranscription = useMutation(api.transcription.storeTranscription);
-  
+
   // Store transcriptions in Convex when they change
   useEffect(() => {
     if (transcript) {
@@ -291,13 +310,13 @@ function Content() {
         sessionId: sessionIdRef.current,
         key
       });
-      
+
       sessionStorage.setItem(key, sourceLanguage);
-      
+
       // Verify it was stored
       const verification = sessionStorage.getItem(key);
       console.log('[Main App] Verification - stored value:', JSON.stringify(verification));
-      
+
       // List all sessionStorage keys for debugging
       console.log('[Main App] All sessionStorage keys:', Object.keys(sessionStorage));
     } else {
@@ -310,7 +329,7 @@ function Content() {
   const initializeAdvancedASR = async () => {
     try {
       setVadStatus('listening');
-      
+
       const vad = await MicVAD.new({
         preSpeechPadFrames: 10,
         positiveSpeechThreshold: 0.5,
@@ -327,30 +346,30 @@ function Content() {
         onSpeechEnd: async (audio: Float32Array) => {
           console.log('[VAD] Speech ended, processing audio');
           setVadStatus('processing');
-          
+
           try {
             // Check audio duration - limit to 30 seconds to prevent large files
             const durationInSeconds = audio.length / 16000; // 16kHz sample rate
             console.log(`[VAD] Audio duration: ${durationInSeconds.toFixed(2)} seconds`);
-            
+
             if (durationInSeconds > 30) {
               console.warn(`[VAD] Audio too long (${durationInSeconds.toFixed(2)}s), truncating to 30 seconds`);
               const maxSamples = 30 * 16000; // 30 seconds at 16kHz
               audio = audio.slice(0, maxSamples);
             }
-            
+
             // Convert Float32Array to WAV format
             const wavBuffer = float32ArrayToWav(audio, 16000);
-            
+
             // Check file size before sending
             const fileSizeInMB = wavBuffer.byteLength / (1024 * 1024);
             console.log(`[VAD] Audio file size: ${fileSizeInMB.toFixed(2)} MB`);
-            
+
             if (fileSizeInMB > 25) {
               console.error(`[VAD] Audio file too large: ${fileSizeInMB.toFixed(2)} MB`);
               throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB. Please speak for shorter periods.`);
             }
-            
+
             // GROQ-DEBUG-START
             console.time('⏱️ GROQ-REQUEST-TIME');
             console.log('🚀 Sending request to Groq API:', {
@@ -375,16 +394,16 @@ function Content() {
               firstChars: result?.text.slice(0, 30) + '...',
             });
             // GROQ-DEBUG-END
-            
+
             if (result.text.trim()) {
               setTranscript(result.text);
               currentTranscriptRef.current = result.text;
-              
-              
+
+
               // Translate the result text
               if (result.text.trim()) {
                 const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
-                
+
                 try {
                   const translationsResult = await Promise.all(
                     targetLanguages.map(targetLang =>
@@ -396,7 +415,7 @@ function Content() {
                       }).then(translation => ({ lang: targetLang, translation }))
                     )
                   );
-                  
+
                   const newTranslations = translationsResult.reduce(
                     (acc, { lang, translation }) => ({
                       ...acc,
@@ -404,7 +423,7 @@ function Content() {
                     }),
                     {}
                   );
-                  
+
                   setTranslations(newTranslations);
                 } catch (error) {
                   console.error("Translation error:", error);
@@ -424,7 +443,7 @@ function Content() {
           isSpeakingRef.current = false;
         },
       });
-      
+
       setMicVAD(vad);
       return vad;
     } catch (error) {
@@ -439,14 +458,14 @@ function Content() {
     const length = buffer.length;
     const arrayBuffer = new ArrayBuffer(44 + length * 2);
     const view = new DataView(arrayBuffer);
-    
+
     // WAV header
     const writeString = (offset: number, string: string) => {
       for (let i = 0; i < string.length; i++) {
         view.setUint8(offset + i, string.charCodeAt(i));
       }
     };
-    
+
     writeString(0, 'RIFF');
     view.setUint32(4, 36 + length * 2, true);
     writeString(8, 'WAVE');
@@ -460,7 +479,7 @@ function Content() {
     view.setUint16(34, 16, true);
     writeString(36, 'data');
     view.setUint32(40, length * 2, true);
-    
+
     // Convert float samples to 16-bit PCM
     let offset = 44;
     for (let i = 0; i < length; i++) {
@@ -468,7 +487,7 @@ function Content() {
       view.setInt16(offset, sample * 0x7FFF, true);
       offset += 2;
     }
-    
+
     return arrayBuffer;
   };
 
@@ -476,10 +495,15 @@ function Content() {
   useEffect(() => {
     if (!sourceLanguage || !isStarted) {
       shouldKeepListeningRef.current = false;
+      // Stop silent audio
+      audioRef.current?.pause();
       return;
     }
 
     shouldKeepListeningRef.current = true;
+
+    // Start silent audio to keep tab active
+    audioRef.current?.play().catch(e => console.log("Audio play failed", e));
 
     // Use Advanced ASR (MicVAD + Groq) if enabled
     if (useAdvancedAsr) {
@@ -489,7 +513,7 @@ function Content() {
           setIsRecording(true);
         }
       });
-      
+
       return () => {
         shouldKeepListeningRef.current = false;
         if (micVAD) {
@@ -515,33 +539,40 @@ function Content() {
     recognitionInstance.onresult = async (event: SpeechRecognitionEvent) => {
       let finalTranscript = '';
       let interimTranscript = '';
-      
+
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         const result = event.results[i];
         const transcript = result[0].transcript;
         const confidence = result[0].confidence;
-        
+
         if (event.results[i].isFinal) {
           // Set a timeout to mark speaking as false after a delay
           // Clear any existing timeout first
           if (speakingTimeoutRef.current) {
             clearTimeout(speakingTimeoutRef.current);
           }
+
+          // Clear silence timer on final result
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+          }
+
           speakingTimeoutRef.current = setTimeout(() => {
             isSpeakingRef.current = false;
             speakingTimeoutRef.current = null;
           }, 1000); // 1 second delay before marking as not speaking
-          
+
           finalTranscript += transcript;
-          
+
           // Update transcript with only the latest final result
           setTranscript(finalTranscript);
           currentTranscriptRef.current = finalTranscript;
-          
+
           // Translate immediately and replace existing translations
           if (finalTranscript.trim()) {
             const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
-            
+
             try {
               const translationsResult = await Promise.all(
                 targetLanguages.map(targetLang =>
@@ -553,7 +584,7 @@ function Content() {
                   }).then(translation => ({ lang: targetLang, translation }))
                 )
               );
-              
+
               const newTranslations = translationsResult.reduce(
                 (acc, { lang, translation }) => ({
                   ...acc,
@@ -561,7 +592,7 @@ function Content() {
                 }),
                 {}
               );
-              
+
               setTranslations(newTranslations); // Replace translations completely
             } catch (error) {
               console.error("Translation error:", error);
@@ -579,6 +610,21 @@ function Content() {
           // Display interim results
           setTranscript(interimTranscript);
           currentTranscriptRef.current = interimTranscript;
+
+          // Reset silence timer
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+
+          // Force finalization if silence is detected for 2 seconds
+          silenceTimerRef.current = setTimeout(() => {
+            console.log("Silence detected, restarting recognition to force finalization...");
+            try {
+              recognitionInstance.stop();
+            } catch (e) {
+              console.error("Error stopping recognition on silence:", e);
+            }
+          }, 2000);
         }
       }
     };
@@ -609,16 +655,16 @@ function Content() {
     };
 
     setRecognition(recognitionInstance);
-    
+
     // Start recognition
     try {
       recognitionInstance.start();
     } catch (error) {
       console.error("Error starting recognition:", error);
-  // Update the OBS link generation to include the session ID
-  const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}`;
+      // Update the OBS link generation to include the session ID
+      const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}`;
     }
-    
+
     // Cleanup on unmount or when dependencies change
     return () => {
       shouldKeepListeningRef.current = false;
@@ -637,7 +683,7 @@ function Content() {
 
   const stopListening = () => {
     shouldKeepListeningRef.current = false;
-    
+
     // Stop Web Speech API if active
     if (recognition) {
       try {
@@ -646,7 +692,7 @@ function Content() {
         console.error("Error stopping recognition:", error);
       }
     }
-    
+
     // Stop Advanced ASR if active
     if (micVAD) {
       try {
@@ -657,14 +703,21 @@ function Content() {
         console.error("Error stopping MicVAD:", error);
       }
     }
-    
+
     // Clear speaking state and timeouts
     isSpeakingRef.current = false;
     if (speakingTimeoutRef.current) {
       clearTimeout(speakingTimeoutRef.current);
       speakingTimeoutRef.current = null;
     }
-    
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+
+    audioRef.current?.pause();
+
     // Reset all state to return to home page
     setIsStarted(false);
     setTranscript("");
@@ -673,7 +726,7 @@ function Content() {
   };
 
   const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}`;
-  
+
   // Also create CSS Customizer link with session ID
   const cssCustomizerLinkWithSession = `/css-customizer?session=${sessionIdRef.current}&source=${sourceLanguage}`;
 
@@ -688,7 +741,7 @@ function Content() {
             <h1 className="text-4xl font-bold text-white text-shadow mb-2">{t.appTitle}</h1>
             <p className="text-xl text-gray-400 text-shadow">{t.appSubtitle}</p>
           </div>
-          
+
           <div className="w-full max-w-xs bg-gray-900/70 backdrop-blur-sm p-6 rounded-xl shadow-inner border border-gray-800/30">
             <h2 className="text-xl font-semibold text-white mb-4">{t.chooseLanguage}</h2>
             <select
@@ -697,7 +750,7 @@ function Content() {
               onChange={(e) => {
                 const selectedLang = e.target.value;
                 setSourceLanguage(selectedLang);
-                
+
                 // Update UI language based on source language selection
                 updateUILanguageFromSource(selectedLang);
               }}
@@ -709,7 +762,7 @@ function Content() {
                 </option>
               ))}
             </select>
-            
+
             {/* Advanced ASR Toggle */}
             <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors mb-4">
               <span>{t.useAdvancedAsr}</span>
@@ -739,7 +792,7 @@ function Content() {
               </div>
             </label>
           </div>
-          
+
           {sourceLanguage && (
             <div className="flex flex-col items-center mt-2">
               <button
@@ -749,7 +802,7 @@ function Content() {
                 {t.startListening}
               </button>
               <div className="mt-4 text-gray-400 flex justify-center items-center">
-                <Link 
+                <Link
                   to={cssCustomizerLinkWithSession}
                   target="_blank"
                   className="flex items-center gap-2 hover:text-white transition-colors text-sm"
@@ -766,14 +819,14 @@ function Content() {
             <div className="flex items-center gap-4">
               <h2 className="text-2xl font-bold text-white text-shadow">{t.console}</h2>
             </div>
-            <button 
+            <button
               onClick={stopListening}
               className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-800/70 text-white hover:bg-gray-800 transition-colors"
             >
               {t.stopAndReset}
             </button>
           </div>
-          
+
           <div className="flex-1 flex gap-6 overflow-y-auto">
             <div className="flex-1 flex flex-col gap-6">
               <div className="p-6 bg-gray-900/60 backdrop-blur-sm rounded-xl shadow-inner border border-gray-800/30">
@@ -794,9 +847,9 @@ function Content() {
             </div>
 
           </div>
-          
+
           <div className="mt-8 flex justify-center gap-4">
-            <button 
+            <button
               onClick={() => {
                 const baseUrl = window.location.origin;
                 const fullUrl = `${baseUrl}${obsLinkWithSession}`;
@@ -845,7 +898,7 @@ function Content() {
                 <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
               </svg>
             </button>
-            <Link 
+            <Link
               to={cssCustomizerLinkWithSession}
               target="_blank"
               className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-900/30 text-gray-400 hover:bg-gray-900/50 hover:text-white transition-all"

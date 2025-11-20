@@ -87,6 +87,7 @@ async function translateWithGroq(text: string, sourceLanguage: string, targetLan
         ],
         temperature: 0.3,
         top_p: 1,
+        reasoning_effort: "low",
         max_tokens: 500,
         stream: false
       }),
