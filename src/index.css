@@ -275,3 +275,15 @@ body {
 .font-readable {
   font-family: 'Inter', sans-serif;
 }
+
+/* Responsive container height - increases proportionally on small screens, capped at 800px */
+/* Formula: 480px base + (520px - viewport) * 2 = grows as screen shrinks */
+.responsive-container {
+  min-height: clamp(480px, calc(480px + (520px - 100vw) * 2), 800px);
+}
+
+@media (min-width: 521px) {
+  .responsive-container {
+    min-height: auto;
+  }
+}

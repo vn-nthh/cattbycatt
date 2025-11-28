@@ -721,7 +721,7 @@ function Content() {
   return (
     <div className="flex flex-col w-full rounded-xl bg-[#2d2d2d] overflow-hidden shadow-2xl relative">
       {!isStarted ? (
-        <div className="flex flex-col pt-16 px-8 pb-20 relative w-full max-w-[450px]">
+        <div className="flex flex-col pt-16 px-8 pb-20 relative w-full max-w-[450px] responsive-container">
           {/* Logo Button - Top Center */}
           <div className="flex justify-center mb-16">
             <button
@@ -827,7 +827,7 @@ function Content() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col p-8 min-h-[70vh] w-full max-w-[520px]">
+        <div className="flex flex-col p-8 min-h-[70vh] w-full max-w-[520px] responsive-container">
           {/* Header with logo and stop button */}
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
