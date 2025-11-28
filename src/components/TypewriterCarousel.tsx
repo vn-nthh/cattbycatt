@@ -49,16 +49,17 @@ export function TypewriterCarousel({
       setIsTransitioning(true)
       const nextIndex = (currentIndex + 1) % sentences.length
       const targetText = sentences[nextIndex]
+      const currentText = sentences[currentIndex] || ""
       
       // Initialize iteration counts for each character position
-      const maxLength = Math.max(displayText.length, targetText.length)
+      const maxLength = Math.max(currentText.length, targetText.length)
       iterationCountRef.current = new Array(maxLength).fill(0)
       
       setCurrentIndex(nextIndex)
     }, pauseDuration)
 
     return () => clearTimeout(timer)
-  }, [sentences, currentIndex, isTransitioning, pauseDuration, displayText.length])
+  }, [sentences, currentIndex, isTransitioning, pauseDuration])
 
   // Scramble animation effect
   useEffect(() => {
