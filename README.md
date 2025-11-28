@@ -1,6 +1,6 @@
 # CATT by Catt - Live Speech Caption and Translation Tool
 
-A real-time speech recognition and translation application that provides immediate text transcription and translation for multilingual communication.
+A real-time speech recognition and translation application that provides immediate text transcription and translation for streamers.
 A free-to-use version is available at: [CATTbyCatt.netlify.app](https://cattbycatt.netlify.app/)
 
 ## Features
@@ -31,19 +31,6 @@ npm run dev
 
 3. Configure environment variables:
    - `VITE_CONVEX_URL`: Your Convex deployment URL
-
-## Deployment
-
-The application is configured for deployment on Netlify with routing set up for SPA support.
-
-## Technology Stack
-
-- React 19
-- Vite
-- Convex
-- Web Speech API
-- Tailwind CSS
-- TypeScript
 
 ## License
 

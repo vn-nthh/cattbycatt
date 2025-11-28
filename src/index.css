@@ -1,17 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Technotype34 Custom Font */
+@font-face {
+  font-family: 'Technotype34';
+  src: url('/Technotype34-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 body {
-  background-color: #0d0c13;
-  background-image: 
-    radial-gradient(circle at 15% 35%, rgba(40, 40, 40, 0.03) 0%, transparent 45%),
-    radial-gradient(circle at 85% 25%, rgba(30, 30, 35, 0.04) 0%, transparent 50%),
-    radial-gradient(circle at 50% 80%, rgba(25, 25, 30, 0.04) 0%, transparent 55%);
+  background-color: #1e1e1e;
   min-height: 100vh;
   margin: 0;
   padding: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Technotype34', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* For the export route, override the background */
@@ -205,4 +212,62 @@ body {
 /* Translation container styles */
 .translations-container .translation-item {
   opacity: 1;
+}
+
+/* Typewriter Carousel Styles */
+.typewriter-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 2rem;
+  text-align: center;
+}
+
+.typewriter-text {
+  font-size: 1rem;
+  font-weight: normal;
+  color: #606060;
+  letter-spacing: 0.05em;
+  font-family: 'Technotype34', monospace;
+  -webkit-text-stroke: 0.5px #606060;
+  paint-order: stroke fill;
+}
+
+/* Custom Dropdown Arrow */
+.custom-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23efefef'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25rem;
+  padding-right: 2.5rem;
+  /* Prevent text overflow */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Fix flex shrinking and ensure proper width calculation */
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  /* Inter for readable dropdown content */
+  font-family: 'Inter', sans-serif;
+}
+
+/* Ensure dropdown options also use Inter */
+.custom-select option {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Label stroke effect */
+.label-stroke {
+  -webkit-text-stroke: 0.8px #606060;
+  paint-order: stroke fill;
+}
+
+/* Readable text utility - Inter for functional/readable content */
+.font-readable {
+  font-family: 'Inter', sans-serif;
 }

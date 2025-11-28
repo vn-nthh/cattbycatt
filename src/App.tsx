@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
 import ServerExportView from "./components/ServerExportView";
 import CSSCustomizer from "./components/CSSCustomizer";
+import { TypewriterCarousel } from "./components/TypewriterCarousel";
 import { getSessionId } from "./lib/session";
 import { MicVAD } from "@ricky0123/vad-web";
 
@@ -35,12 +36,16 @@ interface MainAppTranslations {
   appSubtitle: string;
 
   // Language selection
-  chooseLanguage: string;
+  languages: string;
   selectLanguage: string;
 
-  // Settings
-  useGptTranslation: string;
-  useAdvancedAsr: string;
+  // Settings - Dropdowns
+  asrModel: string;
+  asrWebSpeech: string;
+  asrWhisper: string;
+  translation: string;
+  translationOss: string;
+  translationGpt: string;
 
   // Actions
   startListening: string;
@@ -53,6 +58,9 @@ interface MainAppTranslations {
 
   // Language labels
   original: string;
+  languageEnglish: string;
+  languageJapanese: string;
+  languageKorean: string;
 
   // Links
   openObsView: string;
@@ -63,16 +71,23 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
   en: {
     appTitle: "CATT by Catt",
     appSubtitle: "Real-time Captioning And Translating Tool",
-    chooseLanguage: "Choose Your Language",
+    languages: "Languages",
     selectLanguage: "Select Language",
-    useGptTranslation: "Use GPT-4 Nano for translation",
-    useAdvancedAsr: "Use Advanced ASR",
+    asrModel: "ASR Model",
+    asrWebSpeech: "Default (WebSpeech API)",
+    asrWhisper: "Whisper",
+    translation: "Translation",
+    translationOss: "Default (OSS-20B)",
+    translationGpt: "GPT-4 Nano",
     startListening: "Start Listening",
     customizeObsStyling: "🎨 Customize OBS Styling",
     console: "Console",
     stopAndReset: "Stop & Reset",
     listening: "Listening...",
     original: "Original",
+    languageEnglish: "English",
+    languageJapanese: "Japanese",
+    languageKorean: "Korean",
     openObsView: "Copy OBS Link",
     customizeObs: "🎨 Customize OBS"
   },
@@ -80,20 +95,23 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
   ja: {
     appTitle: "CATT by Catt",
     appSubtitle: "リアルタイム字幕・翻訳ツール",
-    chooseLanguage: "言語を選択",
+    languages: "言語",
     selectLanguage: "言語を選択",
-    useGptTranslation: "翻訳にGPT-4 Nanoを使用",
-    longTextChunking: "長文チャンク化アルゴリズム（実験的）",
-    useAdvancedAsr: "高度なASRを使用",
+    asrModel: "ASRモデル",
+    asrWebSpeech: "デフォルト（WebSpeech API）",
+    asrWhisper: "Whisper",
+    translation: "翻訳",
+    translationOss: "デフォルト（OSS-20B）",
+    translationGpt: "GPT-4 Nano",
     startListening: "聞き取り開始",
     customizeObsStyling: "🎨 OBSスタイルをカスタマイズ",
     console: "コンソール",
     stopAndReset: "停止してリセット",
     listening: "聞き取り中...",
-    processing: "処理中...",
-    punctuationActive: "句読点処理が有効",
-    incomplete: "未完了",
     original: "原文",
+    languageEnglish: "英語",
+    languageJapanese: "日本語",
+    languageKorean: "韓国語",
     openObsView: "OBSリンクをコピー",
     customizeObs: "🎨 OBSをカスタマイズ"
   },
@@ -101,20 +119,23 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
   ko: {
     appTitle: "CATT by Catt",
     appSubtitle: "실시간 자막 및 번역 도구",
-    chooseLanguage: "언어 선택",
+    languages: "언어",
     selectLanguage: "언어 선택",
-    useGptTranslation: "번역에 GPT-4 Nano 사용",
-    longTextChunking: "긴 텍스트 청킹 알고리즘 (실험적)",
-    useAdvancedAsr: "고급 ASR 사용",
+    asrModel: "ASR 모델",
+    asrWebSpeech: "기본값 (WebSpeech API)",
+    asrWhisper: "Whisper",
+    translation: "번역",
+    translationOss: "기본값 (OSS-20B)",
+    translationGpt: "GPT-4 Nano",
     startListening: "듣기 시작",
     customizeObsStyling: "🎨 OBS 스타일 사용자 지정",
     console: "콘솔",
     stopAndReset: "정지 및 재설정",
     listening: "듣는 중...",
-    processing: "처리 중...",
-    punctuationActive: "구두점 처리 활성화",
-    incomplete: "미완료",
     original: "원본",
+    languageEnglish: "영어",
+    languageJapanese: "일본어",
+    languageKorean: "한국어",
     openObsView: "OBS 링크 복사",
     customizeObs: "🎨 OBS 사용자 지정"
   }
@@ -206,9 +227,9 @@ function AppRoutes() {
 
 function MainApp() {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-950">
-      <main className="flex-1 flex items-center justify-center">
-        <div className="w-full max-w-3xl mx-auto">
+    <div className="min-h-screen flex flex-col bg-[#1e1e1e]">
+      <main className="flex-1 flex items-center justify-center p-8">
+        <div className="min-h-[480px] mx-auto">
           <Content />
         </div>
       </main>
@@ -291,12 +312,12 @@ function Content() {
   useEffect(() => {
     if (transcript) {
       storeTranscription({
-        transcript: transcript, // Always store raw transcript for consistency
+        transcript: transcript,
         translations,
         sourceLanguage,
         sessionId: sessionIdRef.current
-      }).catch(error => {
-        console.error("Error storing transcription:", error);
+      }).catch(() => {
+        // Failed to store transcription
       });
     }
   }, [transcript, translations, sourceLanguage, storeTranscription]);
@@ -305,22 +326,7 @@ function Content() {
   useEffect(() => {
     if (sourceLanguage) {
       const key = `sourceLanguage_${sessionIdRef.current}`;
-      console.log('[Main App] About to store:', {
-        sourceLanguage,
-        sessionId: sessionIdRef.current,
-        key
-      });
-
       sessionStorage.setItem(key, sourceLanguage);
-
-      // Verify it was stored
-      const verification = sessionStorage.getItem(key);
-      console.log('[Main App] Verification - stored value:', JSON.stringify(verification));
-
-      // List all sessionStorage keys for debugging
-      console.log('[Main App] All sessionStorage keys:', Object.keys(sessionStorage));
-    } else {
-      console.log('[Main App] Skipping storage because sourceLanguage is:', JSON.stringify(sourceLanguage));
     }
   }, [sourceLanguage]);
 
@@ -337,23 +343,18 @@ function Content() {
         redemptionFrames: 8,
         frameSamples: 1536,
         minSpeechFrames: 4,
-        minSilenceFrames: 10,
         onSpeechStart: () => {
-          console.log('[VAD] Speech started');
           setVadStatus('speaking');
           isSpeakingRef.current = true;
         },
         onSpeechEnd: async (audio: Float32Array) => {
-          console.log('[VAD] Speech ended, processing audio');
           setVadStatus('processing');
 
           try {
             // Check audio duration - limit to 30 seconds to prevent large files
             const durationInSeconds = audio.length / 16000; // 16kHz sample rate
-            console.log(`[VAD] Audio duration: ${durationInSeconds.toFixed(2)} seconds`);
-
+            
             if (durationInSeconds > 30) {
-              console.warn(`[VAD] Audio too long (${durationInSeconds.toFixed(2)}s), truncating to 30 seconds`);
               const maxSamples = 30 * 16000; // 30 seconds at 16kHz
               audio = audio.slice(0, maxSamples);
             }
@@ -363,38 +364,17 @@ function Content() {
 
             // Check file size before sending
             const fileSizeInMB = wavBuffer.byteLength / (1024 * 1024);
-            console.log(`[VAD] Audio file size: ${fileSizeInMB.toFixed(2)} MB`);
-
+            
             if (fileSizeInMB > 25) {
-              console.error(`[VAD] Audio file too large: ${fileSizeInMB.toFixed(2)} MB`);
               throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB. Please speak for shorter periods.`);
             }
 
-            // GROQ-DEBUG-START
-            console.time('⏱️ GROQ-REQUEST-TIME');
-            console.log('🚀 Sending request to Groq API:', {
-              language: sourceLanguage,
-              sessionId: sessionIdRef.current,
-              audioSize: wavBuffer.byteLength
-            });
-            // GROQ-DEBUG-END
-
             const result = await transcribeWithGroq({
-              audioBlob: wavBuffer, // Pass ArrayBuffer directly, not Uint8Array
+              audioBlob: wavBuffer,
               language: sourceLanguage,
               sessionId: sessionIdRef.current,
             });
-
-            // GROQ-DEBUG-START
-            console.timeEnd('⏱️ GROQ-REQUEST-TIME');
-            console.log('✅ Groq API response:', {
-              success: !!result,
-              hasText: !!result?.text.trim(),
-              textLength: result?.text.length || 0,
-              firstChars: result?.text.slice(0, 30) + '...',
-            });
-            // GROQ-DEBUG-END
-
+            
             if (result.text.trim()) {
               setTranscript(result.text);
               currentTranscriptRef.current = result.text;
@@ -425,20 +405,19 @@ function Content() {
                   );
 
                   setTranslations(newTranslations);
-                } catch (error) {
-                  console.error("Translation error:", error);
+                } catch {
+                  // Translation failed silently
                 }
               }
             }
-          } catch (error) {
-            console.error("Groq transcription error:", error);
+          } catch {
+            // Transcription failed silently
           } finally {
             setVadStatus('listening');
             isSpeakingRef.current = false;
           }
         },
         onVADMisfire: () => {
-          console.log('[VAD] Misfire detected');
           setVadStatus('listening');
           isSpeakingRef.current = false;
         },
@@ -446,8 +425,7 @@ function Content() {
 
       setMicVAD(vad);
       return vad;
-    } catch (error) {
-      console.error("Error initializing MicVAD:", error);
+    } catch {
       setVadStatus('idle');
       return null;
     }
@@ -527,7 +505,6 @@ function Content() {
     // Use Web Speech API if Advanced ASR is disabled
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      console.error("Speech Recognition API not supported in this browser");
       return;
     }
 
@@ -594,8 +571,8 @@ function Content() {
               );
 
               setTranslations(newTranslations); // Replace translations completely
-            } catch (error) {
-              console.error("Translation error:", error);
+            } catch {
+              // Translation failed silently
             }
           }
         } else {
@@ -635,8 +612,8 @@ function Content() {
         setTimeout(() => {
           try {
             recognitionInstance.start();
-          } catch (error) {
-            console.error("Error restarting recognition:", error);
+          } catch {
+            // Failed to restart recognition
           }
         }, 1000);
       }
@@ -647,8 +624,8 @@ function Content() {
         setTimeout(() => {
           try {
             recognitionInstance.start();
-          } catch (error) {
-            console.error("Error restarting recognition:", error);
+          } catch {
+            // Failed to restart recognition
           }
         }, 1000);
       }
@@ -659,10 +636,8 @@ function Content() {
     // Start recognition
     try {
       recognitionInstance.start();
-    } catch (error) {
-      console.error("Error starting recognition:", error);
-      // Update the OBS link generation to include the session ID
-      const obsLinkWithSession = `/server-export?session=${sessionIdRef.current}${useGpt ? '&gpt=true' : ''}`;
+    } catch {
+      // Failed to start recognition
     }
 
     // Cleanup on unmount or when dependencies change
@@ -670,11 +645,13 @@ function Content() {
       shouldKeepListeningRef.current = false;
       try {
         recognitionInstance.stop();
-      } catch (e) {
-        console.error("Error stopping recognition:", e);
+      } catch {
+        // Failed to stop recognition
       }
     };
-  }, [sourceLanguage, isStarted, useGpt, useAdvancedAsr, translateText, transcribeWithGroq]);
+  // Note: translateText and transcribeWithGroq are stable Convex action references
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceLanguage, isStarted, useGpt, useAdvancedAsr]);
 
   // Start/stop listening
   const startListening = () => {
@@ -688,8 +665,8 @@ function Content() {
     if (recognition) {
       try {
         recognition.stop();
-      } catch (error) {
-        console.error("Error stopping recognition:", error);
+      } catch {
+        // Failed to stop recognition
       }
     }
 
@@ -699,8 +676,8 @@ function Content() {
         micVAD.pause();
         setIsRecording(false);
         setVadStatus('idle');
-      } catch (error) {
-        console.error("Error stopping MicVAD:", error);
+      } catch {
+        // Failed to stop MicVAD
       }
     }
 
@@ -734,121 +711,159 @@ function Content() {
   const displayTranscript = transcript;
 
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl mx-auto bg-gray-950/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-800/30">
+    <div className="flex flex-col w-full rounded-xl bg-[#2d2d2d] overflow-hidden shadow-2xl relative">
       {!isStarted ? (
-        <div className="flex flex-col items-center justify-center gap-8 p-10 text-center min-h-[80vh]">
-          <div className="mb-4">
-            <h1 className="text-4xl font-bold text-white text-shadow mb-2">{t.appTitle}</h1>
-            <p className="text-xl text-gray-400 text-shadow">{t.appSubtitle}</p>
-          </div>
-
-          <div className="w-full max-w-xs bg-gray-900/70 backdrop-blur-sm p-6 rounded-xl shadow-inner border border-gray-800/30">
-            <h2 className="text-xl font-semibold text-white mb-4">{t.chooseLanguage}</h2>
-            <select
-              className="w-full px-4 py-3 rounded-lg bg-gray-800 text-white font-medium border border-gray-700 shadow-md transition-all hover:bg-gray-750 focus:ring-2 focus:ring-gray-600 focus:outline-none mb-4"
-              value={sourceLanguage}
-              onChange={(e) => {
-                const selectedLang = e.target.value;
-                setSourceLanguage(selectedLang);
-
-                // Update UI language based on source language selection
-                updateUILanguageFromSource(selectedLang);
-              }}
+        <div className="flex flex-col pt-16 px-8 pb-20 relative w-[450px]">
+          {/* Logo Button - Top Center */}
+          <div className="flex justify-center mb-16">
+            <button
+              onClick={sourceLanguage ? startListening : undefined}
+              disabled={!sourceLanguage}
+              className={`transition-all duration-200 ${
+                sourceLanguage
+                  ? "cursor-pointer hover:scale-105 active:scale-95"
+                  : "opacity-50 cursor-not-allowed"
+              }`}
+              title={sourceLanguage ? t.startListening : t.selectLanguage}
             >
-              <option value="">{t.selectLanguage}</option>
-              {Object.entries(LANGUAGES).map(([code, name]) => (
-                <option key={code} value={code}>
-                  {name}
-                </option>
-              ))}
-            </select>
-
-            {/* Advanced ASR Toggle */}
-            <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors mb-4">
-              <span>{t.useAdvancedAsr}</span>
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={useAdvancedAsr}
-                  onChange={(e) => setUseAdvancedAsr(e.target.checked)}
-                  className="sr-only"
-                />
-                <div className={`w-12 h-6 rounded-full ${useAdvancedAsr ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
-                <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${useAdvancedAsr ? 'translate-x-6' : ''}`}></div>
-              </div>
-            </label>
-
-            <label className="flex items-center justify-between w-full p-3 rounded-lg bg-gray-800/50 text-white cursor-pointer hover:bg-gray-800/70 transition-colors mb-4">
-              <span className="text-left">{t.useGptTranslation}</span>
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={useGpt}
-                  onChange={(e) => setUseGpt(e.target.checked)}
-                  className="sr-only"
-                />
-                <div className={`w-12 h-6 rounded-full ${useGpt ? 'bg-gray-600' : 'bg-gray-700'} transition-colors`}></div>
-                <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transform transition-transform ${useGpt ? 'translate-x-6' : ''}`}></div>
-              </div>
-            </label>
+              <img
+                src="/catt_logo_white.png"
+                alt="CATT Logo"
+                className="w-14 h-14"
+              />
+            </button>
           </div>
 
-          {sourceLanguage && (
-            <div className="flex flex-col items-center mt-2">
-              <button
-                onClick={startListening}
-                className="px-8 py-4 rounded-full text-lg font-bold bg-gray-800 text-white shadow-lg hover:bg-gray-700 transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-opacity-50"
-              >
-                {t.startListening}
-              </button>
-              <div className="mt-4 text-gray-400 flex justify-center items-center">
-                <Link
-                  to={cssCustomizerLinkWithSession}
-                  target="_blank"
-                  className="flex items-center gap-2 hover:text-white transition-colors text-sm"
+          {/* Dropdowns Container */}
+          <div className="flex flex-col gap-3 w-full">
+            {/* Language Dropdown */}
+            <div className="flex items-center gap-4">
+              <label className="text-xl text-[#606060] uppercase tracking-wide label-stroke min-w-[140px] shrink-0">
+                {t.languages}
+              </label>
+              <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
+                <select
+                  className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
+                  value={sourceLanguage}
+                  onChange={(e) => {
+                    const selectedLang = e.target.value;
+                    setSourceLanguage(selectedLang);
+                    updateUILanguageFromSource(selectedLang);
+                  }}
                 >
-                  <span>{t.customizeObsStyling}</span>
-                </Link>
+                  <option value="">{t.selectLanguage}</option>
+                  {Object.entries(LANGUAGES).map(([code]) => {
+                    const languageNameMap: Record<string, string> = {
+                      en: t.languageEnglish,
+                      ja: t.languageJapanese,
+                      ko: t.languageKorean,
+                    };
+                    return (
+                      <option key={code} value={code}>
+                        {languageNameMap[code]}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
             </div>
-          )}
+
+            {/* ASR Model Dropdown */}
+            <div className="flex items-center gap-4">
+              <label className="text-xl text-[#606060] uppercase tracking-wide label-stroke min-w-[140px] shrink-0">
+                {t.asrModel}
+              </label>
+              <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
+                <select
+                  className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
+                  value={useAdvancedAsr ? "whisper" : "webspeech"}
+                  onChange={(e) => setUseAdvancedAsr(e.target.value === "whisper")}
+                >
+                  <option value="webspeech">{t.asrWebSpeech}</option>
+                  <option value="whisper">{t.asrWhisper}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Translation Model Dropdown */}
+            <div className="flex items-center gap-4">
+              <label className="text-xl text-[#606060] uppercase tracking-wide label-stroke min-w-[140px] shrink-0">
+                {t.translation}
+              </label>
+              <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
+                <select
+                  className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
+                  value={useGpt ? "gpt" : "oss"}
+                  onChange={(e) => setUseGpt(e.target.value === "gpt")}
+                >
+                  <option value="oss">{t.translationOss}</option>
+                  <option value="gpt">{t.translationGpt}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Outline SVG - Bottom, half visible (midpoint at container bottom) */}
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-full flex justify-center pointer-events-none z-0">
+            <img
+              src="/outline.svg"
+              alt=""
+              className="w-full max-w-[400px] h-auto opacity-40"
+            />
+          </div>
+
+          {/* Typewriter Carousel Tagline - Positioned over the SVG */}
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full flex justify-center z-10 pb-4">
+            <TypewriterCarousel scrambleSpeed={100} pauseDuration={8000} scrambleIterations={15} />
+          </div>
         </div>
       ) : (
-        <div className="flex flex-col p-10 min-h-[80vh]">
+        <div className="flex flex-col p-8 min-h-[70vh] w-[520px]">
+          {/* Header with logo and stop button */}
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold text-white text-shadow">{t.console}</h2>
+              <img
+                src="/catt_logo_white.png"
+                alt="CATT Logo"
+                className="w-10 h-10 opacity-80"
+              />
+              <h2 className="text-2xl text-[#606060] uppercase tracking-wide label-stroke">{t.console}</h2>
             </div>
             <button
               onClick={stopListening}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-800/70 text-white hover:bg-gray-800 transition-colors"
+              className="px-5 py-2.5 rounded-lg text-sm bg-[#606060] text-[#efefef] border border-[#efefef]/30 hover:bg-[#707070] transition-colors"
             >
               {t.stopAndReset}
             </button>
           </div>
 
-          <div className="flex-1 flex gap-6 overflow-y-auto">
-            <div className="flex-1 flex flex-col gap-6">
-              <div className="p-6 bg-gray-900/60 backdrop-blur-sm rounded-xl shadow-inner border border-gray-800/30">
-                <div className="text-sm uppercase text-gray-400 mb-2 font-semibold">
-                  {t.original} ({LANGUAGES[sourceLanguage as keyof typeof LANGUAGES]})
-                </div>
-                <p className="text-2xl text-white text-shadow min-h-[3rem]">
-                  {displayTranscript || t.listening}
-                </p>
+          {/* Transcript and Translations */}
+          <div className="flex-1 flex flex-col gap-4 overflow-y-auto">
+            {/* Original Transcript */}
+            <div className="p-5 bg-[#1e1e1e]/60 rounded-lg border border-[#606060]/30">
+              <div className="text-sm uppercase text-[#606060] mb-2 tracking-wide label-stroke">
+                {t.original} ({LANGUAGES[sourceLanguage as keyof typeof LANGUAGES]})
               </div>
-
-              {Object.entries(translations).map(([lang, translation]) => (
-                <div key={lang} className="p-6 bg-gray-900/40 backdrop-blur-sm rounded-xl shadow-inner border border-gray-800/30">
-                  <div className="text-sm uppercase text-gray-400 mb-2 font-semibold">{LANGUAGES[lang as keyof typeof LANGUAGES]}</div>
-                  <p className="text-2xl text-white text-shadow">{translation}</p>
-                </div>
-              ))}
+              <p className="text-xl text-[#efefef] min-h-[2.5rem] leading-relaxed font-readable">
+                {displayTranscript || (
+                  <span className="text-[#606060] animate-pulse font-readable">{t.listening}</span>
+                )}
+              </p>
             </div>
 
+            {/* Translations */}
+            {Object.entries(translations).map(([lang, translation]) => (
+              <div key={lang} className="p-5 bg-[#1e1e1e]/40 rounded-lg border border-[#606060]/20">
+                <div className="text-sm uppercase text-[#606060] mb-2 tracking-wide label-stroke">
+                  {LANGUAGES[lang as keyof typeof LANGUAGES]}
+                </div>
+                <p className="text-xl text-[#efefef] leading-relaxed font-readable">{translation}</p>
+              </div>
+            ))}
           </div>
 
-          <div className="mt-8 flex justify-center gap-4">
+          {/* Footer Actions */}
+          <div className="mt-6 flex justify-center gap-4">
             <button
               onClick={() => {
                 const baseUrl = window.location.origin;
@@ -856,29 +871,27 @@ function Content() {
 
                 navigator.clipboard.writeText(fullUrl)
                   .then(() => {
-                    // Show subtle indication that link was copied
                     const copyIndicator = document.createElement('div');
                     copyIndicator.textContent = 'Link copied!';
                     copyIndicator.style.position = 'fixed';
                     copyIndicator.style.bottom = '20px';
                     copyIndicator.style.left = '50%';
                     copyIndicator.style.transform = 'translateX(-50%)';
-                    copyIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-                    copyIndicator.style.color = 'white';
-                    copyIndicator.style.padding = '8px 16px';
-                    copyIndicator.style.borderRadius = '4px';
+                    copyIndicator.style.backgroundColor = '#606060';
+                    copyIndicator.style.color = '#efefef';
+                    copyIndicator.style.padding = '10px 20px';
+                    copyIndicator.style.borderRadius = '8px';
                     copyIndicator.style.zIndex = '9999';
                     copyIndicator.style.opacity = '0';
                     copyIndicator.style.transition = 'opacity 0.3s ease-in-out';
+                    copyIndicator.style.fontFamily = 'Technotype34, sans-serif';
 
                     document.body.appendChild(copyIndicator);
 
-                    // Fade in
                     setTimeout(() => {
                       copyIndicator.style.opacity = '1';
                     }, 10);
 
-                    // Remove after animation
                     setTimeout(() => {
                       copyIndicator.style.opacity = '0';
                       setTimeout(() => {
@@ -886,11 +899,11 @@ function Content() {
                       }, 300);
                     }, 2000);
                   })
-                  .catch(err => {
-                    console.error('Could not copy link: ', err);
+                  .catch(() => {
+                    // Failed to copy to clipboard
                   });
               }}
-              className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-900/30 text-gray-400 hover:bg-gray-900/50 hover:text-white transition-all"
+              className="flex items-center gap-2 px-5 py-3 rounded-lg bg-[#606060] text-[#efefef] border border-[#efefef]/30 hover:bg-[#707070] transition-all"
             >
               <span>{t.openObsView}</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -901,7 +914,7 @@ function Content() {
             <Link
               to={cssCustomizerLinkWithSession}
               target="_blank"
-              className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-900/30 text-gray-400 hover:bg-gray-900/50 hover:text-white transition-all"
+              className="flex items-center gap-2 px-5 py-3 rounded-lg bg-[#1e1e1e]/60 text-[#606060] border border-[#606060]/30 hover:bg-[#1e1e1e] hover:text-[#efefef] transition-all"
             >
               <span>{t.customizeObs}</span>
             </Link>

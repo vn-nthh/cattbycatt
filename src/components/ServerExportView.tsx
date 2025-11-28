@@ -14,9 +14,6 @@ const ServerExportView: React.FC = () => {
   // Check if punctuation mode is enabled
   const isPunctuationEnabled = searchParams.has('punctuation');
   
-  // Local state for handling data
-  const [updateTrigger, setUpdateTrigger] = useState(0);
-  
   // Track previous translation content for change detection
   const prevTranslationsRef = useRef<Record<string, string>>({});
   const [animationKey, setAnimationKey] = useState(0);
@@ -104,15 +101,6 @@ const ServerExportView: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [transcriptionData?.transcript, isPunctuationEnabled, windowWidth, isInitialRender]);
   
-  // Set up a refresh interval to force re-render
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setUpdateTrigger(prev => prev + 1);
-    }, isOBSMode ? 300 : 1000);
-    
-    return () => clearInterval(interval);
-  }, [isOBSMode]);
-  
   // Set the document title and ensure the body has transparent background
   useEffect(() => {
     document.title = isOBSMode ? "OBS Captions" : "Live Caption Export";
@@ -132,6 +120,27 @@ const ServerExportView: React.FC = () => {
   // Apply text shadow class based on OBS mode
   const textShadowClass = isOBSMode ? 'obs-text-shadow' : 'text-shadow';
 
+  // Get filtered translations (excluding source language)
+  const filteredTranslations = transcriptionData 
+    ? Object.entries(transcriptionData.translations || {})
+        .filter(([lang]) => lang !== transcriptionData.sourceLanguage)
+        .reduce<Record<string, string>>((acc, [lang, translation]) => ({
+          ...acc,
+          [lang]: translation as string
+        }), {})
+    : {};
+  
+  // Update animation key when translations change (moved to useEffect to avoid render-time state updates)
+  useEffect(() => {
+    const translationsJson = JSON.stringify(filteredTranslations);
+    const prevTranslationsJson = JSON.stringify(prevTranslationsRef.current);
+    
+    if (translationsJson !== prevTranslationsJson) {
+      prevTranslationsRef.current = filteredTranslations;
+      setAnimationKey(prev => prev + 1);
+    }
+  }, [filteredTranslations]);
+
   // Display loading state
   if (!transcriptionData) {
     return (
@@ -139,28 +148,6 @@ const ServerExportView: React.FC = () => {
         <p className={textShadowClass}>Waiting for transcription...</p>
       </div>
     );
-  }
-
-  // Get filtered translations (excluding source language)
-  const filteredTranslations = Object.entries(transcriptionData.translations || {})
-    .filter(([lang]) => lang !== transcriptionData.sourceLanguage)
-    .reduce<Record<string, string>>((acc, [lang, translation]) => ({
-      ...acc,
-      [lang]: translation as string
-    }), {});
-    
-  // Check if translations changed
-  const translationsJson = JSON.stringify(filteredTranslations);
-  const prevTranslationsJson = JSON.stringify(prevTranslationsRef.current);
-  
-  // Update animation key when translations change (not transcriptions)
-  if (translationsJson !== prevTranslationsJson) {
-    prevTranslationsRef.current = filteredTranslations;
-    // Only use setTimeout in browser environment
-    if (typeof window !== 'undefined') {
-      // Small delay to ensure DOM updates first
-      setTimeout(() => setAnimationKey(prev => prev + 1), 0);
-    }
   }
 
   // Render transcript with sliding window if punctuation is enabled
