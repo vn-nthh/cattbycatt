@@ -79,7 +79,7 @@ export const translateText = action({
         return translation;
       } catch (error) {
         console.error('GPT translation error:', error);
-        // Fall back to Gemini 2.5 Flash if GPT fails
+        // Fall back to Gemini 2.5 Flash Lite if GPT fails
         return translateWithGemini(args.text, args.sourceLanguage, args.targetLanguage);
       }
     }
@@ -88,7 +88,7 @@ export const translateText = action({
   },
 });
 
-// Helper function to translate using Gemini 2.5 Flash via OpenRouter
+// Helper function to translate using Gemini 2.5 Flash Lite via OpenRouter
 async function translateWithGemini(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
   try {
     console.log(`[Gemini] Starting translation: ${sourceLanguage} -> ${targetLanguage}`);
@@ -98,14 +98,14 @@ IMPORTANT: You MUST translate the text completely. Do not return the original te
 Maintain the original meaning and nuance, but make it sound natural in the target language.
 Return ONLY the translated text with no explanations or additional content.`;
 
-    const translation = await callOpenRouter('google/gemini-2.5-flash', systemPrompt, text);
+    const translation = await callOpenRouter('google/gemini-2.5-flash-lite', systemPrompt, text);
     
     // Check if translation is same as input (model failed to translate)
     if (translation.trim().toLowerCase() === text.trim().toLowerCase()) {
       console.warn('[Gemini] Warning: Translation appears identical to input, model may have failed');
     }
     
-    console.log('[Gemini 2.5 Flash] Translation result:', { original: text, translation });
+    console.log('[Gemini 2.5 Flash Lite] Translation result:', { original: text, translation });
     return translation;
   } catch (error) {
     console.error('[Gemini] Translation error:', error instanceof Error ? error.message : error);
