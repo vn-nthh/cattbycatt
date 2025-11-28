@@ -276,10 +276,10 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
-/* Responsive container height - increases proportionally on small screens, capped at 800px */
+/* Responsive container height - increases proportionally on small screens, capped at 620px */
 /* Formula: 480px base + (520px - viewport) * 2 = grows as screen shrinks */
 .responsive-container {
-  min-height: clamp(480px, calc(480px + (520px - 100vw) * 2), 800px);
+  min-height: clamp(480px, calc(480px + (520px - 100vw) * 2), 620px);
 }
 
 @media (min-width: 521px) {
