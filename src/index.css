@@ -42,7 +42,7 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden !important;
-  font-family: 'Quicksand', 'Segoe UI', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   width: 100vw;
   height: 100vh;
   max-width: 100vw;
@@ -112,6 +112,8 @@ body {
   left: 0;
   max-width: 100vw;
   max-height: 100vh;
+  /* Use readable font for export view */
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   /* Prevent scrollbars across all browsers */
   -ms-overflow-style: none !important;  /* IE and Edge */
   scrollbar-width: none !important;  /* Firefox */
@@ -136,6 +138,7 @@ body {
 
 /* Basic text styling for the export view - no animations */
 .export-view p {
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 2.5em;
   font-weight: 500;
   margin: 0.3em 0;
@@ -183,6 +186,7 @@ body {
 }
 
 .sliding-text {
+  font-family: 'Inter', 'Segoe UI', sans-serif !important;
   font-size: 2.5em !important;
   font-weight: 500 !important;
   margin: 0 !important;
