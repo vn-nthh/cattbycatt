@@ -11,12 +11,19 @@ This document outlines the environment variables required for the CATT by Catt a
 - **How to set**: `convex env set OPENROUTER_API_KEY your_openrouter_api_key_here`
 - **Get API Key**: Visit [https://openrouter.ai/](https://openrouter.ai/) to obtain your API key
 
-### Groq API (Advanced ASR)
+### Groq API (Whisper ASR)
 - **Variable Name**: `GROQ_API_KEY`
 - **Description**: API key for Groq's Whisper V3 Turbo transcription service
-- **Usage**: Used when "Use Advanced ASR" is enabled for high-quality speech recognition
+- **Usage**: Used when "Whisper" ASR model is selected for high-quality speech recognition
 - **How to set**: `convex env set GROQ_API_KEY your_groq_api_key_here`
 - **Get API Key**: Visit [https://console.groq.com/](https://console.groq.com/) to obtain your API key
+
+### Google AI Studio API (Gemini ASR)
+- **Variable Name**: `GEMINI_API_KEY`
+- **Description**: API key for Google's Gemini 2.5 Flash model with audio transcription capabilities
+- **Usage**: Used when "Gemini" ASR model is selected for speech recognition
+- **How to set**: `convex env set GEMINI_API_KEY your_gemini_api_key_here`
+- **Get API Key**: Visit [https://aistudio.google.com/](https://aistudio.google.com/) to obtain your API key
 
 ## Deprecated Environment Variables
 
@@ -34,8 +41,11 @@ To set environment variables in Convex, use the following commands:
 # Set OpenRouter API key for Translation (GPT-4.1 Nano & Gemini 2.5 Flash)
 convex env set OPENROUTER_API_KEY your_openrouter_api_key_here
 
-# Set Groq API key for Advanced ASR
+# Set Groq API key for Whisper ASR
 convex env set GROQ_API_KEY your_groq_api_key_here
+
+# Set Gemini API key for Gemini ASR
+convex env set GEMINI_API_KEY your_gemini_api_key_here
 ```
 
 ## Verification
@@ -49,13 +59,32 @@ convex env list
 
 ## Features and API Usage
 
-### Advanced ASR (Groq Whisper V3 Turbo with MicVAD)
+### ASR Models
+
+Users can choose between three ASR (Automatic Speech Recognition) models:
+
+#### 1. WebSpeech API (Default)
+- **Provider**: Browser built-in
+- **Requirements**: No API key required
+- **Features**: Real-time streaming transcription with interim results
+- **Best for**: Quick setup, no additional costs
+
+#### 2. Whisper (Groq)
 - **Model**: `whisper-large-v3-turbo`
+- **Provider**: Groq
 - **VAD Implementation**: MicVAD from `@ricky0123/vad-web`
-- **VAD Configuration**: `preSpeechPadFrames: 10` (as requested)
+- **VAD Configuration**: `preSpeechPadFrames: 10`
 - **Audio Format**: WAV 16-bit PCM, 16kHz sample rate
 - **Speech Detection**: Real-time voice activity detection with automatic speech segmentation
 - **Benefits**: Higher accuracy than browser Web Speech API, intelligent speech boundary detection
+
+#### 3. Gemini
+- **Model**: `gemini-2.5-flash`
+- **Provider**: Google AI Studio
+- **VAD Implementation**: MicVAD from `@ricky0123/vad-web`
+- **Audio Format**: WAV 16-bit PCM, 16kHz sample rate (sent as base64)
+- **Speech Detection**: Real-time voice activity detection with automatic speech segmentation
+- **Benefits**: Multimodal AI with strong language understanding, good for context-aware transcription
 
 ### Translation (OpenRouter)
 
@@ -88,7 +117,7 @@ convex env list
   - `GOOGLE_API_KEY_1`, `GOOGLE_API_KEY_2`, `GOOGLE_API_KEY_3`
 
 ### Current Features
-- **Advanced ASR Toggle**: Users can choose between browser Web Speech API and Groq Whisper with MicVAD
+- **ASR Model Selection**: Users can choose between browser WebSpeech API, Groq Whisper, or Gemini for speech recognition
 - **Improved Translation**: OpenRouter provides access to multiple high-quality translation models
-- **Voice Activity Detection**: MicVAD (`@ricky0123/vad-web`) for precise speech boundary detection
+- **Voice Activity Detection**: MicVAD (`@ricky0123/vad-web`) for precise speech boundary detection (used with Whisper and Gemini)
 - **Intelligent Speech Segmentation**: Automatic detection of speech start/end with configurable pre-speech padding

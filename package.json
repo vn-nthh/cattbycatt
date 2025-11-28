@@ -21,7 +21,8 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.6.0",
     "sonner": "^2.0.3",
-    "tailwind-merge": "^3.1.0"
+    "tailwind-merge": "^3.1.0",
+    "ws": "^8.18.3"
   },
   "overrides": {
     "convex": "1.21.1-alpha.1"

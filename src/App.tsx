@@ -43,6 +43,7 @@ interface MainAppTranslations {
   asrModel: string;
   asrWebSpeech: string;
   asrWhisper: string;
+  asrGemini: string;
   translation: string;
   translationGemini: string;
   translationGpt: string;
@@ -76,6 +77,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrModel: "ASR Model",
     asrWebSpeech: "Default (WebSpeech API)",
     asrWhisper: "Whisper",
+    asrGemini: "Gemini",
     translation: "Translation",
     translationGemini: "Default (Gemini 2.5 Flash Lite)",
     translationGpt: "GPT-4 Nano",
@@ -100,6 +102,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrModel: "ASRモデル",
     asrWebSpeech: "デフォルト（WebSpeech API）",
     asrWhisper: "Whisper",
+    asrGemini: "Gemini",
     translation: "翻訳",
     translationGemini: "デフォルト（Gemini 2.5 Flash Lite）",
     translationGpt: "GPT-4 Nano",
@@ -124,6 +127,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrModel: "ASR 모델",
     asrWebSpeech: "기본값 (WebSpeech API)",
     asrWhisper: "Whisper",
+    asrGemini: "Gemini",
     translation: "번역",
     translationGemini: "기본값 (Gemini 2.5 Flash Lite)",
     translationGpt: "GPT-4 Nano",
@@ -243,7 +247,7 @@ function Content() {
   const [isStarted, setIsStarted] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [useGpt, setUseGpt] = useState(false);
-  const [useAdvancedAsr, setUseAdvancedAsr] = useState(false);
+  const [asrModel, setAsrModel] = useState<'webspeech' | 'whisper' | 'gemini'>('webspeech');
 
 
 
@@ -276,6 +280,7 @@ function Content() {
 
   const translateText = useAction(api.translate.translateText);
   const transcribeWithGroq = useAction(api.groqTranscription.transcribeAudioStream);
+  const transcribeWithGemini = useAction(api.geminiTranscription.transcribeAudioStream);
   const sessionIdRef = useRef(getSessionId());
 
   // Add ref to track if we want to keep listening (for proper cleanup)
@@ -332,7 +337,10 @@ function Content() {
 
 
   // Initialize MicVAD for Advanced ASR
-  const initializeAdvancedASR = async () => {
+  const initializeAdvancedASR = async (selectedAsrModel: 'whisper' | 'gemini') => {
+    // Select the appropriate transcription function based on ASR model
+    const transcribeAudio = selectedAsrModel === 'gemini' ? transcribeWithGemini : transcribeWithGroq;
+    
     try {
       setVadStatus('listening');
 
@@ -369,7 +377,7 @@ function Content() {
               throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB. Please speak for shorter periods.`);
             }
 
-            const result = await transcribeWithGroq({
+            const result = await transcribeAudio({
               audioBlob: wavBuffer,
               language: sourceLanguage,
               sessionId: sessionIdRef.current,
@@ -483,9 +491,9 @@ function Content() {
     // Start silent audio to keep tab active
     audioRef.current?.play().catch(e => console.log("Audio play failed", e));
 
-    // Use Advanced ASR (MicVAD + Groq) if enabled
-    if (useAdvancedAsr) {
-      initializeAdvancedASR().then(vad => {
+    // Use Advanced ASR (MicVAD + Whisper/Gemini) if enabled
+    if (asrModel !== 'webspeech') {
+      initializeAdvancedASR(asrModel).then(vad => {
         if (vad) {
           vad.start();
           setIsRecording(true);
@@ -502,7 +510,7 @@ function Content() {
       };
     }
 
-    // Use Web Speech API if Advanced ASR is disabled
+    // Use Web Speech API if webspeech is selected
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       return;
@@ -649,9 +657,9 @@ function Content() {
         // Failed to stop recognition
       }
     };
-  // Note: translateText and transcribeWithGroq are stable Convex action references
+  // Note: translateText, transcribeWithGroq, and transcribeWithGemini are stable Convex action references
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceLanguage, isStarted, useGpt, useAdvancedAsr]);
+  }, [sourceLanguage, isStarted, useGpt, asrModel]);
 
   // Start/stop listening
   const startListening = () => {
@@ -776,11 +784,12 @@ function Content() {
               <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
                 <select
                   className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
-                  value={useAdvancedAsr ? "whisper" : "webspeech"}
-                  onChange={(e) => setUseAdvancedAsr(e.target.value === "whisper")}
+                  value={asrModel}
+                  onChange={(e) => setAsrModel(e.target.value as 'webspeech' | 'whisper' | 'gemini')}
                 >
                   <option value="webspeech">{t.asrWebSpeech}</option>
                   <option value="whisper">{t.asrWhisper}</option>
+                  <option value="gemini">{t.asrGemini}</option>
                 </select>
               </div>
             </div>
