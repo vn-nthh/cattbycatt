@@ -44,7 +44,7 @@ interface MainAppTranslations {
   asrWebSpeech: string;
   asrWhisper: string;
   translation: string;
-  translationOss: string;
+  translationGemini: string;
   translationGpt: string;
 
   // Actions
@@ -77,7 +77,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWebSpeech: "Default (WebSpeech API)",
     asrWhisper: "Whisper",
     translation: "Translation",
-    translationOss: "Default (OSS-20B)",
+    translationGemini: "Default (Gemini 2.5 Flash)",
     translationGpt: "GPT-4 Nano",
     startListening: "Start Listening",
     customizeObsStyling: "🎨 Customize OBS Styling",
@@ -101,7 +101,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWebSpeech: "デフォルト（WebSpeech API）",
     asrWhisper: "Whisper",
     translation: "翻訳",
-    translationOss: "デフォルト（OSS-20B）",
+    translationGemini: "デフォルト（Gemini 2.5 Flash）",
     translationGpt: "GPT-4 Nano",
     startListening: "聞き取り開始",
     customizeObsStyling: "🎨 OBSスタイルをカスタマイズ",
@@ -125,7 +125,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWebSpeech: "기본값 (WebSpeech API)",
     asrWhisper: "Whisper",
     translation: "번역",
-    translationOss: "기본값 (OSS-20B)",
+    translationGemini: "기본값 (Gemini 2.5 Flash)",
     translationGpt: "GPT-4 Nano",
     startListening: "듣기 시작",
     customizeObsStyling: "🎨 OBS 스타일 사용자 지정",
@@ -793,10 +793,10 @@ function Content() {
               <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
                 <select
                   className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
-                  value={useGpt ? "gpt" : "oss"}
+                  value={useGpt ? "gpt" : "gemini"}
                   onChange={(e) => setUseGpt(e.target.value === "gpt")}
                 >
-                  <option value="oss">{t.translationOss}</option>
+                  <option value="gemini">{t.translationGemini}</option>
                   <option value="gpt">{t.translationGpt}</option>
                 </select>
               </div>

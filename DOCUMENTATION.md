@@ -30,10 +30,13 @@ npm install
 ```
 
 ### 3. Environment Setup
-Create a `.env` file in the root directory with the following variables:
-```
-OPENAI_API_KEY=your_openai_api_key
-GOOGLE_APPLICATION_CREDENTIALS=path_to_google_credentials.json
+Set environment variables in Convex:
+```bash
+# Required for translation (GPT-4.1 Nano & Gemini 2.5 Flash)
+convex env set OPENROUTER_API_KEY your_openrouter_api_key
+
+# Required for Advanced ASR (Groq Whisper)
+convex env set GROQ_API_KEY your_groq_api_key
 ```
 
 ### 4. Local Development Setup
@@ -66,8 +69,8 @@ The application can be deployed to any static hosting service (Vercel, Netlify, 
 
 ### 3. Production Environment Variables
 Make sure to set these environment variables in your production environment:
-- `OPENAI_API_KEY`
-- `GOOGLE_APPLICATION_CREDENTIALS`
+- `OPENROUTER_API_KEY` (for translation via GPT-4.1 Nano & Gemini 2.5 Flash)
+- `GROQ_API_KEY` (for Advanced ASR with Whisper)
 - `CONVEX_DEPLOY_KEY` (if using Convex)
 
 ## OBS Integration
@@ -95,8 +98,9 @@ Make sure to set these environment variables in your production environment:
 - Supported languages: English, Japanese, Korean
 
 ### Translation
-- Real-time translation to multiple languages
-- Optional GPT-4 Nano integration for improved quality
+- Real-time translation to multiple languages via OpenRouter
+- Default: Gemini 2.5 Flash for fast, high-quality translations
+- Optional: GPT-4.1 Nano for context-aware translation
 - Translation delay: Typically 1-2 seconds
 
 ### UI Customization

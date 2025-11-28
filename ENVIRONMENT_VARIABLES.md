@@ -4,6 +4,13 @@ This document outlines the environment variables required for the CATT by Catt a
 
 ## Required Environment Variables
 
+### OpenRouter API (Translation)
+- **Variable Name**: `OPENROUTER_API_KEY`
+- **Description**: API key for OpenRouter's unified API, used for translation services
+- **Usage**: Powers both GPT-4.1 Nano and Gemini 2.5 Flash translation models
+- **How to set**: `convex env set OPENROUTER_API_KEY your_openrouter_api_key_here`
+- **Get API Key**: Visit [https://openrouter.ai/](https://openrouter.ai/) to obtain your API key
+
 ### Groq API (Advanced ASR)
 - **Variable Name**: `GROQ_API_KEY`
 - **Description**: API key for Groq's Whisper V3 Turbo transcription service
@@ -11,30 +18,24 @@ This document outlines the environment variables required for the CATT by Catt a
 - **How to set**: `convex env set GROQ_API_KEY your_groq_api_key_here`
 - **Get API Key**: Visit [https://console.groq.com/](https://console.groq.com/) to obtain your API key
 
-### Groq API (Translation - OpenAI OSS 20B)
-- **Variable Name**: `GROQ_API_KEY`
-- **Description**: API key for Groq's Chat Completions API using model `openai/gpt-oss-20b`
-- **Usage**: Used as the default translation service (replaces OpenRouter Gemma)
-- **How to set**: `convex env set GROQ_API_KEY your_groq_api_key_here`
-- **Get API Key**: Visit [https://console.groq.com/](https://console.groq.com/) to obtain your API key
+## Deprecated Environment Variables
 
-### OpenAI API (Fallback & Punctuation)
+### OpenAI API (Deprecated for Translation)
 - **Variable Name**: `OPENAI_API_KEY`
-- **Description**: API key for OpenAI's GPT models
-- **Usage**: Used for GPT-4 Nano translation (when enabled) and punctuation processing
-- **How to set**: `convex env set OPENAI_API_KEY your_openai_api_key_here`
-- **Get API Key**: Visit [https://platform.openai.com/](https://platform.openai.com/) to obtain your API key
+- **Description**: Previously used for direct OpenAI API calls
+- **Status**: No longer required for translation (now handled via OpenRouter)
+- **Note**: May still be needed for other features if applicable
 
 ## Setting Environment Variables
 
 To set environment variables in Convex, use the following commands:
 
 ```bash
-# Set Groq API key for Advanced ASR and Translation
-convex env set GROQ_API_KEY your_groq_api_key_here
+# Set OpenRouter API key for Translation (GPT-4.1 Nano & Gemini 2.5 Flash)
+convex env set OPENROUTER_API_KEY your_openrouter_api_key_here
 
-# Set OpenAI API key for GPT features
-convex env set OPENAI_API_KEY your_openai_api_key_here
+# Set Groq API key for Advanced ASR
+convex env set GROQ_API_KEY your_groq_api_key_here
 ```
 
 ## Verification
@@ -56,18 +57,29 @@ convex env list
 - **Speech Detection**: Real-time voice activity detection with automatic speech segmentation
 - **Benefits**: Higher accuracy than browser Web Speech API, intelligent speech boundary detection
 
-### Translation (Groq OpenAI OSS 20B)
-- **Model**: `openai/gpt-oss-20b`
-- **Features**: Supports system prompts, consistent quality for translation
-- **Prompting**: Reuses the same system and user prompts as the GPT-4.1 Nano path
-- **Behavior**: Non-streaming single-shot completion with conservative temperature (0.3)
+### Translation (OpenRouter)
 
-### Punctuation Processing (OpenAI GPT-4 Nano)
-- **Model**: `gpt-4.1-nano`
-- **Usage**: Adds punctuation to streaming transcribed speech
-- **Features**: Conservative punctuation, handles incomplete sentences
+#### Primary Model: GPT-4.1 Nano
+- **Model ID**: `openai/gpt-4.1-nano`
+- **Provider**: OpenRouter
+- **Features**: Context-aware translation, supports previous translation context for consistency
+- **Prompting**: Conservative temperature (0.3) for consistent translations
+
+#### Default Model: Gemini 2.5 Flash
+- **Model ID**: `google/gemini-2.5-flash`
+- **Provider**: OpenRouter
+- **Features**: Fast, high-quality translation as the default option
+- **Behavior**: Non-streaming single-shot completion with conservative temperature (0.3)
+- **Fallback**: Used when GPT-4.1 Nano is not selected or encounters an error
 
 ## Migration Notes
+
+### Recent Changes (OpenRouter Migration)
+- **Removed**: Direct OpenAI API calls for translation
+- **Removed**: Groq OSS-20B translation model
+- **Added**: OpenRouter as unified translation provider
+- **Added**: Gemini 2.5 Flash as default translation model
+- **Changed**: GPT-4.1 Nano now accessed via OpenRouter instead of direct OpenAI API
 
 ### Removed Dependencies
 - **Google Cloud Translate**: Removed `@google-cloud/translate` dependency
@@ -75,8 +87,8 @@ convex env list
   - `GOOGLE_PROJECT_ID_1`, `GOOGLE_PROJECT_ID_2`, `GOOGLE_PROJECT_ID_3`
   - `GOOGLE_API_KEY_1`, `GOOGLE_API_KEY_2`, `GOOGLE_API_KEY_3`
 
-### New Features
-- **Advanced ASR Toggle**: Users can now choose between browser Web Speech API and Groq Whisper with MicVAD
-- **Improved Translation**: Groq OpenAI OSS 20B provides better translation quality and system-prompt support
+### Current Features
+- **Advanced ASR Toggle**: Users can choose between browser Web Speech API and Groq Whisper with MicVAD
+- **Improved Translation**: OpenRouter provides access to multiple high-quality translation models
 - **Voice Activity Detection**: MicVAD (`@ricky0123/vad-web`) for precise speech boundary detection
 - **Intelligent Speech Segmentation**: Automatic detection of speech start/end with configurable pre-speech padding
