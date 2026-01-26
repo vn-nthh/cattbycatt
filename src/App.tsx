@@ -860,13 +860,19 @@ function Content() {
               </p>
             </div>
 
-            {/* Translations */}
-            {Object.entries(translations).map(([lang, translation]) => (
+            {/* Translations - Always show all target languages */}
+            {Object.keys(LANGUAGES)
+              .filter(lang => lang !== sourceLanguage)
+              .map((lang) => (
               <div key={lang} className="p-5 bg-[#1e1e1e]/40 rounded-lg border border-[#606060]/20">
                 <div className="text-sm uppercase text-[#606060] mb-2 tracking-wide label-stroke">
                   {LANGUAGES[lang as keyof typeof LANGUAGES]}
                 </div>
-                <p className="text-xl text-[#efefef] leading-relaxed font-readable">{translation}</p>
+                <p className="text-xl text-[#efefef] leading-relaxed font-readable">
+                  {translations[lang] || (
+                    <span className="text-[#606060] animate-pulse font-readable">{t.listening}</span>
+                  )}
+                </p>
               </div>
             ))}
           </div>

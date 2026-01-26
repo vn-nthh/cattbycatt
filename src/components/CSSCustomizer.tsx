@@ -6,26 +6,39 @@ interface CustomizationSettings {
   transcriptFont: string;
   japaneseFont: string;
   koreanFont: string;
-  
+
   // Colors (separate)
   textColor: string;
+  // Glow settings
+  glowEnabled: boolean;
   glowColor: string;
-  
-  // Glow intensity (0-100)
   glowIntensity: number;
-  
+
+  // Text border/stroke
+  borderEnabled: boolean;
+  borderColor: string;
+  borderWidth: number;
+
+  // Shadow settings
+  shadowEnabled: boolean;
+  shadowColor: string;
+
   // Animation type for translations
   animationType: 'fadeIn' | 'slideUp' | 'slideDown' | 'scaleIn' | 'none';
-  
+
   // Animation speed
   animationSpeed: number;
-  
+
   // Spacing
   spacing: 'tight' | 'normal' | 'loose';
-  
+
   // Font sizes
   transcriptSize: number;
   translationSize: number;
+
+  // Stagger settings
+  staggerEnabled: boolean;
+  staggerTime: number;
 }
 
 const DEFAULT_SETTINGS: CustomizationSettings = {
@@ -33,19 +46,97 @@ const DEFAULT_SETTINGS: CustomizationSettings = {
   japaneseFont: "'Noto Sans JP', sans-serif",
   koreanFont: "'Noto Sans KR', sans-serif",
   textColor: '#ffffff',
+  glowEnabled: true,
   glowColor: '#2196F3',
   glowIntensity: 50,
+  borderEnabled: false,
+  borderColor: '#000000',
+  borderWidth: 0,
   animationType: 'none',
   animationSpeed: 0.4,
   spacing: 'normal',
   transcriptSize: 2.5,
   translationSize: 2.5,
+  staggerEnabled: false,
+  staggerTime: 0.3,
+  shadowEnabled: true,
+  shadowColor: '#000000',
+};
+
+// Preset type definition
+type PresetType = 'default' | 'sophisticated' | 'whimsy' | 'custom';
+
+// Preset configurations
+const PRESETS: Record<Exclude<PresetType, 'custom'>, CustomizationSettings> = {
+  default: {
+    transcriptFont: 'system-ui, -apple-system, sans-serif',
+    japaneseFont: "'Noto Sans JP', sans-serif",
+    koreanFont: "'Noto Sans KR', sans-serif",
+    textColor: '#ffffff',
+    glowEnabled: true,
+    glowColor: '#2196F3',
+    glowIntensity: 50,
+    borderEnabled: false,
+    borderColor: '#000000',
+    borderWidth: 0,
+    animationType: 'none',
+    animationSpeed: 0.4,
+    spacing: 'normal',
+    transcriptSize: 2.5,
+    translationSize: 2.5,
+    staggerEnabled: false,
+    staggerTime: 0.3,
+    shadowEnabled: true,
+    shadowColor: '#000000',
+  },
+  sophisticated: {
+    transcriptFont: "'Playfair Display', serif",
+    japaneseFont: "'Shippori Mincho', serif",
+    koreanFont: "'Nanum Myeongjo', serif",
+    textColor: '#f0e6d3',
+    glowEnabled: true,
+    glowColor: '#8b7355',
+    glowIntensity: 30,
+    borderEnabled: true,
+    borderColor: '#2a2015',
+    borderWidth: 1,
+    animationType: 'fadeIn',
+    animationSpeed: 0.6,
+    spacing: 'loose',
+    transcriptSize: 2.8,
+    translationSize: 2.4,
+    staggerEnabled: true,
+    staggerTime: 0.3,
+    shadowEnabled: true,
+    shadowColor: '#000000',
+  },
+  whimsy: {
+    transcriptFont: "'Fredoka One', cursive",
+    japaneseFont: "'M PLUS Rounded 1c', sans-serif",
+    koreanFont: "'Jua', sans-serif",
+    textColor: '#fff5f8',
+    glowEnabled: true,
+    glowColor: '#ff6b9d',
+    glowIntensity: 75,
+    borderEnabled: true,
+    borderColor: '#ff1493',
+    borderWidth: 2,
+    animationType: 'scaleIn',
+    animationSpeed: 0.3,
+    spacing: 'normal',
+    transcriptSize: 2.6,
+    translationSize: 2.4,
+    staggerEnabled: false,
+    staggerTime: 0.3,
+    shadowEnabled: true,
+    shadowColor: '#000000',
+  },
 };
 
 const FONT_OPTIONS = [
   // System Fonts
   { value: 'system-ui, -apple-system, sans-serif', label: 'System Default', category: 'System' },
-  
+
   // Popular Sans-Serif Fonts
   { value: "'Inter', sans-serif", label: 'Inter', category: 'Sans-Serif' },
   { value: "'Roboto', sans-serif", label: 'Roboto', category: 'Sans-Serif' },
@@ -76,7 +167,7 @@ const FONT_OPTIONS = [
   { value: "'Barlow', sans-serif", label: 'Barlow', category: 'Sans-Serif' },
   { value: "'Karla', sans-serif", label: 'Karla', category: 'Sans-Serif' },
   { value: "'Mukti', sans-serif", label: 'Mukti', category: 'Sans-Serif' },
-  
+
   // Serif Fonts
   { value: "'Playfair Display', serif", label: 'Playfair Display', category: 'Serif' },
   { value: "'Merriweather', serif", label: 'Merriweather', category: 'Serif' },
@@ -98,7 +189,7 @@ const FONT_OPTIONS = [
   { value: "'Bitter', serif", label: 'Bitter', category: 'Serif' },
   { value: "'Zilla Slab', serif", label: 'Zilla Slab', category: 'Serif' },
   { value: "'Cardo', serif", label: 'Cardo', category: 'Serif' },
-  
+
   // Handwritten/Script Fonts
   { value: "'Dancing Script', cursive", label: 'Dancing Script', category: 'Handwritten' },
   { value: "'Pacifico', cursive", label: 'Pacifico', category: 'Handwritten' },
@@ -115,7 +206,7 @@ const FONT_OPTIONS = [
   { value: "'Great Vibes', cursive", label: 'Great Vibes', category: 'Handwritten' },
   { value: "'Lobster', cursive", label: 'Lobster', category: 'Handwritten' },
   { value: "'Righteous', cursive", label: 'Righteous', category: 'Handwritten' },
-  
+
   // Monospace Fonts
   { value: "'JetBrains Mono', monospace", label: 'JetBrains Mono', category: 'Monospace' },
   { value: "'Fira Code', monospace", label: 'Fira Code', category: 'Monospace' },
@@ -125,7 +216,7 @@ const FONT_OPTIONS = [
   { value: "'Space Mono', monospace", label: 'Space Mono', category: 'Monospace' },
   { value: "'Inconsolata', monospace", label: 'Inconsolata', category: 'Monospace' },
   { value: "'Ubuntu Mono', monospace", label: 'Ubuntu Mono', category: 'Monospace' },
-  
+
   // Display Fonts (Legible)
   { value: "'Oswald', sans-serif", label: 'Oswald', category: 'Display' },
   { value: "'Bebas Neue', cursive", label: 'Bebas Neue', category: 'Display' },
@@ -232,7 +323,7 @@ const FontSelector: React.FC<FontSelectorProps> = ({ fonts, value, onChange, lab
   const currentFontLabel = currentFont?.label || t.selectFont;
 
   // Filter fonts based on search
-  const filteredFonts = fonts.filter(font => 
+  const filteredFonts = fonts.filter(font =>
     font.label.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -258,17 +349,17 @@ const FontSelector: React.FC<FontSelectorProps> = ({ fonts, value, onChange, lab
   return (
     <div className="relative" ref={dropdownRef}>
       <label className="block text-sm font-medium mb-2">{label}</label>
-      
+
       {/* Selected font display */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-left flex justify-between items-center"
+        className="w-full px-3 py-2 bg-[#606060] border border-[#efefef]/50 rounded-lg focus:ring-2 focus:ring-[#efefef]/50 text-left flex justify-between items-center text-[#efefef] hover:bg-[#707070] transition-colors"
       >
         <span style={{ fontFamily: value }}>{currentFontLabel}</span>
-        <svg 
+        <svg
           className={`w-4 h-4 transform transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          fill="none" 
-          stroke="currentColor" 
+          fill="none"
+          stroke="currentColor"
           viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -277,15 +368,15 @@ const FontSelector: React.FC<FontSelectorProps> = ({ fonts, value, onChange, lab
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-96 overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-[#2d2d2d] border border-[#efefef]/30 rounded-lg shadow-xl max-h-96 overflow-hidden">
           {/* Search box */}
-          <div className="p-3 border-b border-gray-700">
+          <div className="p-3 border-b border-[#efefef]/20">
             <input
               type="text"
               placeholder={t.searchFonts}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-sm focus:ring-1 focus:ring-blue-500"
+              className="w-full px-2 py-1 bg-[#1e1e1e] border border-[#efefef]/30 rounded text-sm focus:ring-1 focus:ring-[#efefef]/50 text-[#efefef]"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -295,18 +386,17 @@ const FontSelector: React.FC<FontSelectorProps> = ({ fonts, value, onChange, lab
             {Object.entries(categorizedFonts).map(([category, categoryFonts]) => (
               <div key={category}>
                 {/* Category header */}
-                <div className="px-3 py-2 bg-gray-700 text-xs font-semibold text-gray-300 sticky top-0">
+                <div className="px-3 py-2 bg-[#404040] text-xs font-semibold text-[#efefef]/70 sticky top-0">
                   {category}
                 </div>
-                
+
                 {/* Fonts in category */}
                 {categoryFonts.map((font) => (
                   <button
                     key={font.value}
                     onClick={() => handleFontSelect(font.value)}
-                    className={`w-full px-3 py-2 text-left hover:bg-gray-700 transition-colors ${
-                      font.value === value ? 'bg-blue-600 text-white' : 'text-gray-200'
-                    }`}
+                    className={`w-full px-3 py-2 text-left hover:bg-[#505050] transition-colors ${font.value === value ? 'bg-[#606060] text-[#efefef]' : 'text-[#efefef]/80'
+                      }`}
                     style={{ fontFamily: font.value }}
                   >
                     {font.label}
@@ -314,19 +404,19 @@ const FontSelector: React.FC<FontSelectorProps> = ({ fonts, value, onChange, lab
                 ))}
               </div>
             ))}
-            
+
             {filteredFonts.length === 0 && (
-              <div className="px-3 py-4 text-gray-400 text-center">
+              <div className="px-3 py-4 text-[#606060] text-center">
                 {t.noFontsFound} "{searchTerm}"
               </div>
             )}
           </div>
 
           {/* Close button */}
-          <div className="p-2 border-t border-gray-700 bg-gray-800">
+          <div className="p-2 border-t border-[#efefef]/20 bg-[#2d2d2d]">
             <button
               onClick={() => setIsOpen(false)}
-              className="w-full px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors"
+              className="w-full px-3 py-1 bg-[#606060] hover:bg-[#707070] rounded text-sm transition-colors text-[#efefef]"
             >
               {t.close}
             </button>
@@ -357,7 +447,18 @@ interface Translations {
   backToMain: string;
   cssCustomizer: string;
   customizeAppearance: string;
-  
+
+  // Presets
+  stylePresets: string;
+  presetDefault: string;
+  presetSophisticated: string;
+  presetWhimsy: string;
+  presetCustom: string;
+  presetDefaultDesc: string;
+  presetSophisticatedDesc: string;
+  presetWhimsyDesc: string;
+  presetCustomDesc: string;
+
   // Font Settings
   fontSettings: string;
   transcriptFont: string;
@@ -368,22 +469,32 @@ interface Translations {
   selectFont: string;
   close: string;
   noFontsFound: string;
-  
+
   // Appearance
   appearance: string;
   textColor: string;
+  enableGlow: string;
   glowColor: string;
   glowIntensity: string;
+  enableBorder: string;
+  borderColor: string;
+  borderWidth: string;
+  enableShadow: string;
+  shadowColor: string;
   spacing: string;
   tight: string;
   normal: string;
   loose: string;
-  
+
   // Font Sizes
   fontSizes: string;
   transcriptSize: string;
   translationSize: string;
-  
+
+  // Animation Stagger
+  enableStagger: string;
+  staggerTime: string;
+
   // Animation
   animationTranslationsOnly: string;
   animationType: string;
@@ -393,18 +504,18 @@ interface Translations {
   slideDown: string;
   scaleIn: string;
   noAnimation: string;
-  
+
   // Actions
   exportCSS: string;
   copiedToClipboard: string;
-  
+
   // Preview
   livePreview: string;
   loadingFonts: string;
   transcriptSample: string;
   japaneseSample: string;
   koreanSample: string;
-  
+
   // Instructions
   instructions: string;
   instruction1: string;
@@ -413,7 +524,28 @@ interface Translations {
   instruction4: string;
   instruction5: string;
   instruction6: string;
-  
+
+  // Help Section - CSS Documentation
+  howToMakeOwnCSS: string;
+  helpIntro: string;
+
+  // CSS Class Reference
+  helpCSSReferenceTitle: string;
+  helpGlobalTitle: string;
+  helpGlobalDesc: string;
+  helpLanguageTitle: string;
+  helpLanguageDesc: string;
+  helpRoleTitle: string;
+  helpRoleDesc: string;
+  helpAnimationsTitle: string;
+  helpAnimationsDesc: string;
+
+  // Tips
+  helpTipsTitle: string;
+  helpTip1: string;
+  helpTip2: string;
+  helpTip3: string;
+
   // Categories
   system: string;
   sansSerif: string;
@@ -430,7 +562,7 @@ const translations: Record<string, Translations> = {
     backToMain: "← Back to Main App",
     cssCustomizer: "CSS Customizer",
     customizeAppearance: "Customize the appearance of your OBS captions",
-    
+
     // Font Settings
     fontSettings: "Font Settings",
     transcriptFont: "Transcript Font",
@@ -441,22 +573,32 @@ const translations: Record<string, Translations> = {
     selectFont: "Select a font",
     close: "Close",
     noFontsFound: "No fonts found matching",
-    
+
     // Appearance
     appearance: "Appearance",
     textColor: "Text Color",
+    enableGlow: "Enable Glow",
     glowColor: "Glow Color",
     glowIntensity: "Glow Intensity",
+    enableBorder: "Enable Border",
+    borderColor: "Border Color",
+    borderWidth: "Border Width",
+    enableShadow: "Enable Shadow",
+    shadowColor: "Shadow Color",
     spacing: "Spacing",
     tight: "Tight",
     normal: "Normal",
     loose: "Loose",
-    
+
     // Font Sizes
     fontSizes: "Font Sizes",
     transcriptSize: "Transcript Size",
     translationSize: "Translation Size",
-    
+
+    // Animation Stagger
+    enableStagger: "Stagger Lines",
+    staggerTime: "Stagger Time",
+
     // Animation
     animationTranslationsOnly: "Animation (Translations Only)",
     animationType: "Animation Type",
@@ -466,18 +608,18 @@ const translations: Record<string, Translations> = {
     slideDown: "Slide Down",
     scaleIn: "Scale In",
     noAnimation: "No Animation",
-    
+
     // Actions
     exportCSS: "📋 Export CSS",
     copiedToClipboard: "✅ Copied to Clipboard!",
-    
+
     // Preview
     livePreview: "Live Preview",
     loadingFonts: "🔄 Loading Google Fonts for preview...",
     transcriptSample: "This is the transcript line",
     japaneseSample: "これは日本語の翻訳です",
     koreanSample: "이것은 한국어 번역입니다",
-    
+
     // Instructions
     instructions: "Instructions",
     instruction1: "Customize your settings using the controls on the left",
@@ -486,7 +628,39 @@ const translations: Record<string, Translations> = {
     instruction4: "In OBS, add a Browser Source with your export URL",
     instruction5: "Paste the CSS code into the \"Custom CSS\" field",
     instruction6: "Your captions will now use your custom styling!",
-    
+
+    // Presets
+    stylePresets: "Style Presets",
+    presetDefault: "Default",
+    presetSophisticated: "Sophisticated",
+    presetWhimsy: "Whimsy",
+    presetCustom: "Custom",
+    presetDefaultDesc: "Clean and simple with a blue glow",
+    presetSophisticatedDesc: "Elegant serif fonts with warm tones",
+    presetWhimsyDesc: "Fun and playful with pink accents",
+    presetCustomDesc: "Create your own unique style",
+
+    // Help Section - CSS Documentation
+    howToMakeOwnCSS: "CSS Concepts Guide",
+    helpIntro: "Understand the three layers of CATT CSS to create your perfect custom style.",
+
+    // CSS Class Reference
+    helpCSSReferenceTitle: "Style Concepts",
+    helpGlobalTitle: "1. Global Styles (Color, Border, Glow)",
+    helpGlobalDesc: "Properties like 'color', 'border', and 'glow' that you want to apply to ALL text regardless of language or type.",
+    helpLanguageTitle: "2. Language Styles (Specific Fonts)",
+    helpLanguageDesc: "Target specific languages (e.g., .translation-ja) to change fonts specifically for Japanese or Korean characters.",
+    helpRoleTitle: "3. Role Styles (Transcription vs. Translation)",
+    helpRoleDesc: "Define differences between Transcripts (immediate) and Translations (animated). This controls how text appears.",
+    helpAnimationsTitle: "4. Custom Keyframes",
+    helpAnimationsDesc: "The actual logic for your animations. Define exactly how the entry effects should behave.",
+
+    // Tips
+    helpTipsTitle: "Tips",
+    helpTip1: "Use !important on properties to ensure your styles override the defaults",
+    helpTip2: "The source language won't appear in translations (e.g., if speaking Japanese, .translation-ja won't be used)",
+    helpTip3: "Test with long sentences to ensure text doesn't overflow your OBS scene",
+
     // Categories
     system: "System",
     sansSerif: "Sans-Serif",
@@ -496,13 +670,13 @@ const translations: Record<string, Translations> = {
     display: "Display",
     fallback: "Fallback"
   },
-  
+
   ja: {
     // Navigation
     backToMain: "← メインアプリに戻る",
     cssCustomizer: "CSSカスタマイザー",
     customizeAppearance: "OBSキャプションの外観をカスタマイズ",
-    
+
     // Font Settings
     fontSettings: "フォント設定",
     transcriptFont: "転写フォント",
@@ -513,22 +687,32 @@ const translations: Record<string, Translations> = {
     selectFont: "フォントを選択",
     close: "閉じる",
     noFontsFound: "一致するフォントが見つかりません",
-    
+
     // Appearance
     appearance: "外観",
     textColor: "テキストカラー",
+    enableGlow: "グローを有効化",
     glowColor: "グローカラー",
     glowIntensity: "グロー強度",
+    enableBorder: "ボーダーを有効化",
+    borderColor: "ボーダーカラー",
+    borderWidth: "ボーダー幅",
+    enableShadow: "シャドウを有効化",
+    shadowColor: "シャドウカラー",
     spacing: "間隔",
     tight: "狭い",
     normal: "普通",
     loose: "広い",
-    
+
     // Font Sizes
     fontSizes: "フォントサイズ",
     transcriptSize: "転写サイズ",
     translationSize: "翻訳サイズ",
-    
+
+    // Animation Stagger
+    enableStagger: "スタガー表示 (行をずらす)",
+    staggerTime: "表示の遅延時間",
+
     // Animation
     animationTranslationsOnly: "アニメーション（翻訳のみ）",
     animationType: "アニメーションタイプ",
@@ -538,18 +722,18 @@ const translations: Record<string, Translations> = {
     slideDown: "スライドダウン",
     scaleIn: "スケールイン",
     noAnimation: "アニメーションなし",
-    
+
     // Actions
     exportCSS: "📋 CSSをエクスポート",
     copiedToClipboard: "✅ クリップボードにコピーしました！",
-    
+
     // Preview
     livePreview: "ライブプレビュー",
     loadingFonts: "🔄 プレビュー用のGoogleフォントを読み込み中...",
     transcriptSample: "これは転写行です",
     japaneseSample: "これは日本語の翻訳です",
     koreanSample: "이것은 한국어 번역입니다",
-    
+
     // Instructions
     instructions: "使用方法",
     instruction1: "左側のコントロールを使用して設定をカスタマイズ",
@@ -558,7 +742,39 @@ const translations: Record<string, Translations> = {
     instruction4: "OBSで、エクスポートURLを使用してブラウザソースを追加",
     instruction5: "\"カスタムCSS\"フィールドにCSSコードを貼り付け",
     instruction6: "キャプションがカスタムスタイルを使用するようになります！",
-    
+
+    // Presets
+    stylePresets: "スタイルプリセット",
+    presetDefault: "デフォルト",
+    presetSophisticated: "洗練",
+    presetWhimsy: "遊び心",
+    presetCustom: "カスタム",
+    presetDefaultDesc: "青いグローでシンプル",
+    presetSophisticatedDesc: "暖色系のエレガントなセリフ体",
+    presetWhimsyDesc: "ピンクのアクセントで楽しく遊び心のある",
+    presetCustomDesc: "独自のスタイルを作成",
+
+    // Help Section - CSS Documentation
+    howToMakeOwnCSS: "CSSコンセプトガイド",
+    helpIntro: "CATTのCSSにある3つのレイヤーを理解して、完璧なカスタムスタイルを作成しましょう。",
+
+    // CSS Class Reference
+    helpCSSReferenceTitle: "スタイルのコンセプト",
+    helpGlobalTitle: "1. グローバルスタイル (色、ボーダー、グロー)",
+    helpGlobalDesc: "「色」「ボーダー」「グロー」など、言語や種類に関わらず全てのテキストに適用したい共通の設定です。",
+    helpLanguageTitle: "2. 言語スタイル (特定のフォント)",
+    helpLanguageDesc: "特定の言語（.translation-jaなど）を対象にして、日本語や韓国語のフォントを個別に変更します。",
+    helpRoleTitle: "3. 役割別スタイル (転写 vs 翻訳)",
+    helpRoleDesc: "「転写」（即時表示）と「翻訳」（アニメーション表示）の違いを定義し、出現の仕方を制御します。",
+    helpAnimationsTitle: "4. カスタム・キーフレーム",
+    helpAnimationsDesc: "アニメーションの実際の動作（フェード、スライドなど）を定義するロジック部分です。",
+
+    // Tips
+    helpTipsTitle: "ヒント",
+    helpTip1: "!importantを使用してスタイルがデフォルトを確実に上書きするようにする",
+    helpTip2: "ソース言語は翻訳に表示されない（例：日本語で話す場合、.translation-jaは使用されない）",
+    helpTip3: "長い文でテストしてOBSシーンからテキストがはみ出さないことを確認",
+
     // Categories
     system: "システム",
     sansSerif: "サンセリフ",
@@ -568,13 +784,13 @@ const translations: Record<string, Translations> = {
     display: "ディスプレイ",
     fallback: "フォールバック"
   },
-  
+
   ko: {
     // Navigation
     backToMain: "← 메인 앱으로 돌아가기",
     cssCustomizer: "CSS 사용자 지정",
     customizeAppearance: "OBS 캡션의 모양을 사용자 지정하세요",
-    
+
     // Font Settings
     fontSettings: "글꼴 설정",
     transcriptFont: "전사 글꼴",
@@ -585,22 +801,32 @@ const translations: Record<string, Translations> = {
     selectFont: "글꼴 선택",
     close: "닫기",
     noFontsFound: "일치하는 글꼴을 찾을 수 없습니다",
-    
+
     // Appearance
     appearance: "모양",
     textColor: "텍스트 색상",
+    enableGlow: "글로우 활성화",
     glowColor: "글로우 색상",
     glowIntensity: "글로우 강도",
+    enableBorder: "테두리 활성화",
+    borderColor: "테두리 색상",
+    borderWidth: "테두리 두께",
+    enableShadow: "그림자 활성화",
+    shadowColor: "그림자 색상",
     spacing: "간격",
     tight: "좁게",
     normal: "보통",
     loose: "넓게",
-    
+
     // Font Sizes
     fontSizes: "글꼴 크기",
     transcriptSize: "전사 크기",
     translationSize: "번역 크기",
-    
+
+    // Animation Stagger
+    enableStagger: "지연 표시 (줄 간격 지연)",
+    staggerTime: "표시 지연 시간",
+
     // Animation
     animationTranslationsOnly: "애니메이션 (번역만)",
     animationType: "애니메이션 유형",
@@ -610,18 +836,18 @@ const translations: Record<string, Translations> = {
     slideDown: "슬라이드 다운",
     scaleIn: "스케일 인",
     noAnimation: "애니메이션 없음",
-    
+
     // Actions
     exportCSS: "📋 CSS 내보내기",
     copiedToClipboard: "✅ 클립보드에 복사됨!",
-    
+
     // Preview
     livePreview: "라이브 미리보기",
     loadingFonts: "🔄 미리보기용 Google 글꼴 로딩 중...",
     transcriptSample: "이것은 전사 라인입니다",
     japaneseSample: "これは日本語の翻訳です",
     koreanSample: "이것은 한국어 번역입니다",
-    
+
     // Instructions
     instructions: "사용법",
     instruction1: "왼쪽 컨트롤을 사용하여 설정을 사용자 지정하세요",
@@ -630,7 +856,39 @@ const translations: Record<string, Translations> = {
     instruction4: "OBS에서 내보내기 URL로 브라우저 소스를 추가하세요",
     instruction5: "\"사용자 지정 CSS\" 필드에 CSS 코드를 붙여넣으세요",
     instruction6: "이제 캡션이 사용자 지정 스타일을 사용합니다!",
-    
+
+    // Presets
+    stylePresets: "스타일 프리셋",
+    presetDefault: "기본",
+    presetSophisticated: "세련된",
+    presetWhimsy: "재미있는",
+    presetCustom: "사용자 지정",
+    presetDefaultDesc: "파란색 글로우로 깔끔하고 심플하게",
+    presetSophisticatedDesc: "따뜻한 색조의 우아한 세리프 글꼴",
+    presetWhimsyDesc: "핑크 악센트로 재미있고 장난스럽게",
+    presetCustomDesc: "나만의 스타일 만들기",
+
+    // Help Section - CSS Documentation
+    howToMakeOwnCSS: "CSS 컨셉 가이드",
+    helpIntro: "CATT CSS의 세 가지 레이어를 이해하여 완벽한 사용자 정의 스타일을 만들어보세요.",
+
+    // CSS Class Reference
+    helpCSSReferenceTitle: "스타일 컨셉",
+    helpGlobalTitle: "1. 글로벌 스타일 (색상, 테두리, 글로우)",
+    helpGlobalDesc: "언어나 유형에 관계없이 모든 텍스트에 적용하려는 '색상', '테두리', '글로우'와 같은 공통 속성입니다.",
+    helpLanguageTitle: "2. 언어 스타일 (특정 글꼴)",
+    helpLanguageDesc: "특정 언어(.translation-ja 등)를 대상으로 일본어 나 한국어 글꼴을 개별적으로 변경합니다.",
+    helpRoleTitle: "3. 역할 스타일 (전사 vs 번역)",
+    helpRoleDesc: "전사(즉시 표시)와 번역(애니메이션 표시)의 차이를 정의하고 텍스트가 나타나는 방식을 제어합니다.",
+    helpAnimationsTitle: "4. 사용자 정의 키프레임",
+    helpAnimationsDesc: "애니메이션의 실제 작동 방식(페이드, 슬라이드 등)을 정의하는 로직 부분입니다.",
+
+    // Tips
+    helpTipsTitle: "팁",
+    helpTip1: "!important를 사용하여 스타일이 기본값을 확실히 재정의하도록 함",
+    helpTip2: "소스 언어는 번역에 표시되지 않음 (예: 일본어로 말하면 .translation-ja는 사용되지 않음)",
+    helpTip3: "긴 문장으로 테스트하여 텍스트가 OBS 장면에서 넘치지 않는지 확인",
+
     // Categories
     system: "시스템",
     sansSerif: "산세리프",
@@ -647,7 +905,12 @@ const CSSCustomizer: React.FC = () => {
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [fontLoadTrigger, setFontLoadTrigger] = useState(0); // Force re-render for font changes
   const [fontsLoaded, setFontsLoaded] = useState(false);
-  // New: Animation state management
+  // Preset state
+  const [selectedPreset, setSelectedPreset] = useState<PresetType>('default');
+  // Help section collapse state
+  const [isHelpExpanded, setIsHelpExpanded] = useState(false);
+  // Hover highlight state for CSS guide
+  const [hoveredSection, setHoveredSection] = useState<string | null>(null);
   const [animationState, setAnimationState] = useState<'hidden' | 'visible'>('hidden');
   const [animationTrigger, setAnimationTrigger] = useState(0);
   const [currentLanguage, setCurrentLanguage] = useState(() => {
@@ -658,14 +921,14 @@ const CSSCustomizer: React.FC = () => {
   // Get source language from URL params or localStorage
   const [sourceLanguage, setSourceLanguage] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    
+
     // First try to get from URL parameters (most reliable)
     const urlSource = urlParams.get('source');
     if (urlSource) {
       console.log('[CSS Customizer] Got source language from URL:', urlSource);
       return urlSource;
     }
-    
+
     // Fallback: try sessionStorage (for backward compatibility)
     const sessionId = urlParams.get('session');
     if (sessionId) {
@@ -675,7 +938,7 @@ const CSSCustomizer: React.FC = () => {
         return storedSourceLang;
       }
     }
-    
+
     console.log('[CSS Customizer] Defaulting to English');
     return 'en'; // Default to English
   });
@@ -691,7 +954,7 @@ const CSSCustomizer: React.FC = () => {
     // Reset to hidden state first
     setAnimationState('hidden');
     setAnimationTrigger(prev => prev + 1);
-    
+
     // After a brief moment, show with animation
     setTimeout(() => {
       setAnimationState('visible');
@@ -702,7 +965,7 @@ const CSSCustomizer: React.FC = () => {
   useEffect(() => {
     // Trigger animation when settings change
     triggerAnimation();
-    
+
     // Set up 3-second interval for animation replay
     const interval = setInterval(() => {
       triggerAnimation();
@@ -747,7 +1010,7 @@ const CSSCustomizer: React.FC = () => {
 
     // Listen for storage events (cross-tab changes)
     window.addEventListener('storage', handleStorageChange);
-    
+
     // Check periodically for programmatic changes within the same tab
     const interval = setInterval(() => {
       checkLanguageChange();
@@ -767,7 +1030,7 @@ const CSSCustomizer: React.FC = () => {
   const getLanguageConfig = () => {
     const allLanguages = ['en', 'ja', 'ko'];
     const translationLanguages = allLanguages.filter(lang => lang !== sourceLanguage);
-    
+
     return {
       sourceLanguage,
       translationLanguages,
@@ -796,7 +1059,7 @@ const CSSCustomizer: React.FC = () => {
 
   const getPreviewSamples = () => {
     const config = getLanguageConfig();
-    
+
     // Define proper sample texts for each language as source vs translation
     // Use hardcoded text that doesn't depend on UI language
     const transcriptSamples = {
@@ -827,10 +1090,19 @@ const CSSCustomizer: React.FC = () => {
     return result;
   };
 
+  // Handle preset selection
+  const handlePresetChange = useCallback((preset: PresetType) => {
+    setSelectedPreset(preset);
+    if (preset !== 'custom') {
+      setSettings(PRESETS[preset]);
+      setFontLoadTrigger(prev => prev + 1);
+    }
+  }, []);
+
   // Load Google Fonts dynamically for preview
   useEffect(() => {
     const googleFontsUrl = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;500;700&family=Lato:wght@400;500;700&family=Source+Sans+Pro:wght@400;500;700&family=Poppins:wght@400;500;700&family=Montserrat:wght@400;500;700&family=Nunito:wght@400;500;700&family=Raleway:wght@400;500;700&family=Ubuntu:wght@400;500;700&family=Fira+Sans:wght@400;500;700&family=Work+Sans:wght@400;500;700&family=PT+Sans:wght@400;500;700&family=Noto+Sans:wght@400;500;700&family=Quicksand:wght@400;500;700&family=Rubik:wght@400;500;700&family=DM+Sans:wght@400;500;700&family=Manrope:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;700&family=Outfit:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&family=Lexend:wght@400;500;700&family=Archivo:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;700&family=Red+Hat+Display:wght@400;500;700&family=Libre+Franklin:wght@400;500;700&family=Barlow:wght@400;500;700&family=Karla:wght@400;500;700&family=Playfair+Display:wght@400;500;700&family=Merriweather:wght@400;500;700&family=Lora:wght@400;500;700&family=Source+Serif+Pro:wght@400;500;700&family=Crimson+Text:wght@400;500;700&family=PT+Serif:wght@400;500;700&family=Libre+Baskerville:wght@400;500;700&family=Cormorant+Garamond:wght@400;500;700&family=EB+Garamond:wght@400;500;700&family=Noto+Serif:wght@400;500;700&family=Vollkorn:wght@400;500;700&family=Alegreya:wght@400;500;700&family=Spectral:wght@400;500;700&family=IBM+Plex+Serif:wght@400;500;700&family=Arvo:wght@400;500;700&family=Rokkitt:wght@400;500;700&family=Old+Standard+TT:wght@400;500;700&family=Bitter:wght@400;500;700&family=Zilla+Slab:wght@400;500;700&family=Cardo:wght@400;500;700&family=Dancing+Script:wght@400;500;700&family=Pacifico&family=Caveat:wght@400;500;700&family=Kalam:wght@400;500;700&family=Indie+Flower&family=Permanent+Marker&family=Shadows+Into+Light&family=Amatic+SC:wght@400;500;700&family=Satisfy&family=Handlee&family=Courgette&family=Kaushan+Script&family=Great+Vibes&family=Lobster&family=Righteous&family=JetBrains+Mono:wght@400;500;700&family=Fira+Code:wght@400;500;700&family=Source+Code+Pro:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&family=Space+Mono:wght@400;500;700&family=Inconsolata:wght@400;500;700&family=Ubuntu+Mono:wght@400;500;700&family=Oswald:wght@400;500;700&family=Bebas+Neue&family=Anton&family=Fjalla+One&family=Russo+One&family=Comfortaa:wght@400;500;700&family=Fredoka+One&family=Bangers&family=Alfa+Slab+One&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;500;700&family=M+PLUS+Rounded+1c:wght@400;500;700&family=M+PLUS+1p:wght@400;500;700&family=Sawarabi+Gothic&family=Sawarabi+Mincho&family=Kosugi&family=Kosugi+Maru&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Kaku+Gothic+Antique:wght@400;500;700&family=Zen+Old+Mincho:wght@400;500;700&family=Kiwi+Maru:wght@400;500;700&family=Shippori+Mincho:wght@400;500;700&family=BIZ+UDGothic:wght@400;500;700&family=BIZ+UDMincho:wght@400;500;700&family=Kaisei+Opti:wght@400;500;700&family=Kaisei+HarunoUmi:wght@400;500;700&family=Yomogi&family=Klee+One:wght@400;500;700&family=Reggae+One&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;500;700&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Gothic:wght@400;500;700&family=Nanum+Myeongjo:wght@400;500;700&family=Nanum+Gothic+Coding:wght@400;500;700&family=Do+Hyeon&family=Jua&family=Gamja+Flower&family=Gugi&family=Single+Day&family=Cute+Font&family=Gaegu:wght@400;500;700&family=Poor+Story&family=Stylish&family=East+Sea+Dokdo&family=Hi+Melody&family=Sunflower:wght@400;500;700&display=swap';
-    
+
     // Check if the Google Fonts link already exists
     const existingLink = document.querySelector('link[href*="fonts.googleapis.com"]');
     if (!existingLink) {
@@ -838,7 +1110,7 @@ const CSSCustomizer: React.FC = () => {
       link.rel = 'stylesheet';
       link.href = googleFontsUrl;
       document.head.appendChild(link);
-      
+
       // Wait for fonts to load then trigger re-render
       link.onload = () => {
         console.log('Google Fonts loaded successfully');
@@ -865,7 +1137,9 @@ const CSSCustomizer: React.FC = () => {
 
   const updateSetting = useCallback((key: keyof CustomizationSettings, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
-    
+    // Switch to custom preset when user manually changes settings
+    setSelectedPreset('custom');
+
     // Force a re-render when fonts change to ensure preview updates
     if (key.includes('Font')) {
       setTimeout(() => {
@@ -901,21 +1175,14 @@ const CSSCustomizer: React.FC = () => {
   };
 
   // New: Generate transition-based animation styles
-  const getTransitionStyles = (isVisible: boolean, animationType: string, animationSpeed: number, languageCode: string) => {
+  const getTransitionStyles = (isVisible: boolean, animationType: string, animationSpeed: number, index: number) => {
     const baseTransition = `all ${animationSpeed}s ease-out`;
-    
-    // Get stagger delay based on language (matching the real export)
-    const getStaggerDelay = (langCode: string): number => {
-      switch (langCode) {
-        case 'ja': return 0.2;
-        case 'ko': return 0.4;
-        default: return 0; // English or other languages
-      }
-    };
-    
-    const delay = getStaggerDelay(languageCode);
+
+    // Calculate delay based on user's stagger settings
+    // index 0 (first translation) starts at 0 delay
+    const delay = settings.staggerEnabled ? index * settings.staggerTime : 0;
     const transitionWithDelay = delay > 0 ? `all ${animationSpeed}s ease-out ${delay}s` : baseTransition;
-    
+
     if (!isVisible) {
       // Hidden state - different starting points for each animation type
       switch (animationType) {
@@ -928,7 +1195,7 @@ const CSSCustomizer: React.FC = () => {
         case 'slideDown':
           return {
             opacity: 0,
-            transform: 'translateY(-30px)', 
+            transform: 'translateY(-30px)',
             transition: transitionWithDelay
           };
         case 'scaleIn':
@@ -1047,23 +1314,60 @@ const CSSCustomizer: React.FC = () => {
   const generateCSS = () => {
     const { transcriptMargin, translationMargin } = generateSpacingValues();
     const intensity = (settings.glowIntensity / 100) * 1.25; // Scale so 100% = old 125%
-    const transcriptGlow = settings.glowIntensity > 0 
-      ? `text-shadow: 0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}, 0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}, 0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))} !important;`
+
+    const textShadows = [];
+    if (settings.glowEnabled && settings.glowIntensity > 0) {
+      textShadows.push(`0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}`);
+      textShadows.push(`0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}`);
+      textShadows.push(`0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))}`);
+    }
+    if (settings.shadowEnabled) {
+      textShadows.push(`2px 2px 4px ${hexToRgba(settings.shadowColor || '#000000', 0.8)}`);
+    }
+
+    const glowStyle = textShadows.length > 0
+      ? `text-shadow: ${textShadows.join(', ')} !important;`
       : 'text-shadow: none !important;';
-    
-    const translationGlow = settings.glowIntensity > 0
-      ? `text-shadow: 0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}, 0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}, 0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))} !important;`
-      : 'text-shadow: none !important;';
+
+    const borderStyle = settings.borderEnabled
+      ? `-webkit-text-stroke: ${settings.borderWidth}px ${settings.borderColor} !important;`
+      : '-webkit-text-stroke: 0 !important;';
 
     const animationName = settings.animationType === 'slideUp' ? 'slideUpGlow' :
-                         settings.animationType === 'slideDown' ? 'slideDownGlow' :
-                         settings.animationType === 'scaleIn' ? 'scaleInGlow' :
-                         settings.animationType === 'none' ? 'noAnimation' : 'fadeInGlow';
+      settings.animationType === 'slideDown' ? 'slideDownGlow' :
+        settings.animationType === 'scaleIn' ? 'scaleInGlow' :
+          settings.animationType === 'none' ? 'noAnimation' : 'fadeInGlow';
 
-    return `/* Custom OBS CSS Generated by CATT CSS Customizer */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;500;700&family=Lato:wght@400;500;700&family=Source+Sans+Pro:wght@400;500;700&family=Poppins:wght@400;500;700&family=Montserrat:wght@400;500;700&family=Nunito:wght@400;500;700&family=Raleway:wght@400;500;700&family=Ubuntu:wght@400;500;700&family=Fira+Sans:wght@400;500;700&family=Work+Sans:wght@400;500;700&family=PT+Sans:wght@400;500;700&family=Noto+Sans:wght@400;500;700&family=Quicksand:wght@400;500;700&family=Rubik:wght@400;500;700&family=DM+Sans:wght@400;500;700&family=Manrope:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;700&family=Outfit:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&family=Lexend:wght@400;500;700&family=Archivo:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;700&family=Red+Hat+Display:wght@400;500;700&family=Libre+Franklin:wght@400;500;700&family=Barlow:wght@400;500;700&family=Karla:wght@400;500;700&family=Playfair+Display:wght@400;500;700&family=Merriweather:wght@400;500;700&family=Lora:wght@400;500;700&family=Source+Serif+Pro:wght@400;500;700&family=Crimson+Text:wght@400;500;700&family=PT+Serif:wght@400;500;700&family=Libre+Baskerville:wght@400;500;700&family=Cormorant+Garamond:wght@400;500;700&family=EB+Garamond:wght@400;500;700&family=Noto+Serif:wght@400;500;700&family=Vollkorn:wght@400;500;700&family=Alegreya:wght@400;500;700&family=Spectral:wght@400;500;700&family=IBM+Plex+Serif:wght@400;500;700&family=Arvo:wght@400;500;700&family=Rokkitt:wght@400;500;700&family=Old+Standard+TT:wght@400;500;700&family=Bitter:wght@400;500;700&family=Zilla+Slab:wght@400;500;700&family=Cardo:wght@400;500;700&family=Dancing+Script:wght@400;500;700&family=Pacifico&family=Caveat:wght@400;500;700&family=Kalam:wght@400;500;700&family=Indie+Flower&family=Permanent+Marker&family=Shadows+Into+Light&family=Amatic+SC:wght@400;500;700&family=Satisfy&family=Handlee&family=Courgette&family=Kaushan+Script&family=Great+Vibes&family=Lobster&family=Righteous&family=JetBrains+Mono:wght@400;500;700&family=Fira+Code:wght@400;500;700&family=Source+Code+Pro:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&family=Space+Mono:wght@400;500;700&family=Inconsolata:wght@400;500;700&family=Ubuntu+Mono:wght@400;500;700&family=Oswald:wght@400;500;700&family=Bebas+Neue&family=Anton&family=Fjalla+One&family=Russo+One&family=Comfortaa:wght@400;500;700&family=Fredoka+One&family=Bangers&family=Alfa+Slab+One&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;500;700&family=M+PLUS+Rounded+1c:wght@400;500;700&family=M+PLUS+1p:wght@400;500;700&family=Sawarabi+Gothic&family=Sawarabi+Mincho&family=Kosugi&family=Kosugi+Maru&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Kaku+Gothic+Antique:wght@400;500;700&family=Zen+Old+Mincho:wght@400;500;700&family=Kiwi+Maru:wght@400;500;700&family=Shippori+Mincho:wght@400;500;700&family=BIZ+UDGothic:wght@400;500;700&family=BIZ+UDMincho:wght@400;500;700&family=Kaisei+Opti:wght@400;500;700&family=Kaisei+HarunoUmi:wght@400;500;700&family=Yomogi&family=Klee+One:wght@400;500;700&family=Reggae+One&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;500;700&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Gothic:wght@400;500;700&family=Nanum+Myeongjo:wght@400;500;700&family=Nanum+Gothic+Coding:wght@400;500;700&family=Do+Hyeon&family=Jua&family=Gamja+Flower&family=Gugi&family=Single+Day&family=Cute+Font&family=Gaegu:wght@400;500;700&family=Poor+Story&family=Stylish&family=East+Sea+Dokdo&family=Hi+Melody&family=Sunflower:wght@400;500;700&display=swap');
+    // Helper to extract font name from font-family value (e.g., "'Inter', sans-serif" -> "Inter")
+    const extractFontName = (fontValue: string): string | null => {
+      // Skip system fonts
+      if (fontValue.includes('system-ui') || fontValue.includes('-apple-system')) {
+        return null;
+      }
+      // Extract the font name from quotes
+      const match = fontValue.match(/'([^']+)'/);
+      return match ? match[1] : null;
+    };
 
-/* Base transcript line styling */
+    // Build dynamic Google Fonts import with only selected fonts
+    const selectedFonts = new Set<string>();
+    [settings.transcriptFont, settings.japaneseFont, settings.koreanFont].forEach(font => {
+      const fontName = extractFontName(font);
+      if (fontName) {
+        selectedFonts.add(fontName);
+      }
+    });
+
+    // Build the Google Fonts URL
+    let fontImport = '';
+    if (selectedFonts.size > 0) {
+      const fontParams = Array.from(selectedFonts)
+        .map(font => `family=${font.replace(/ /g, '+')}:wght@400;500;700`)
+        .join('&');
+      fontImport = `@import url('https://fonts.googleapis.com/css2?${fontParams}&display=swap');`;
+    }
+
+    return `${fontImport}
 .transcript-line {
   font-size: ${settings.transcriptSize}rem !important;
   font-weight: 600 !important;
@@ -1071,7 +1375,9 @@ const CSSCustomizer: React.FC = () => {
   text-align: center !important;
   margin: 0 0 ${transcriptMargin} 0 !important;
   line-height: 1.3 !important;
-  ${transcriptGlow}
+  ${glowStyle}
+  ${borderStyle}
+  paint-order: stroke fill !important;
   animation: none !important;
   transition: none !important;
   opacity: 1 !important;
@@ -1080,33 +1386,17 @@ const CSSCustomizer: React.FC = () => {
   position: relative !important;
 }
 
-
-
-/* Language-specific transcript fonts (adaptable to any source language) */
-.transcript-line.transcript-en {
-  font-family: ${settings.transcriptFont} !important;
-}
-
-.transcript-line.transcript-ja {
-  font-family: ${settings.japaneseFont} !important;
-}
-
-.transcript-line.transcript-ko {
-  font-family: ${settings.koreanFont} !important;
-}
-
-/* Fallback for unknown source languages */
-.transcript-line.transcript-unknown {
-  font-family: ${settings.transcriptFont} !important;
-}
-
-/* Base styling for translation lines */
 .translation-line {
   font-size: ${settings.translationSize}rem !important;
   font-weight: 500 !important;
+  color: ${settings.textColor} !important;
   text-align: center !important;
   margin: ${translationMargin} !important;
   line-height: 1.3 !important;
+  ${glowStyle}
+  ${borderStyle}
+  paint-order: stroke fill !important;
+  animation: ${animationName} ${settings.animationSpeed}s ease-out forwards !important;
   opacity: 0;
   transform: translateY(5px);
   overflow: visible !important;
@@ -1116,40 +1406,42 @@ const CSSCustomizer: React.FC = () => {
   text-rendering: optimizeLegibility;
 }
 
-/* English translation text (adaptable - works when English is a translation) */
-.translation-en {
+.lang-en, .transcript-en, .translation-en {
   font-family: ${settings.transcriptFont} !important;
-  color: ${settings.textColor} !important;
-  ${translationGlow}
-  animation: ${animationName} ${settings.animationSpeed}s ease-out${settings.animationType === 'none' ? '' : ''} forwards !important;
 }
 
-/* Japanese translation text (adaptable - works when Japanese is a translation) */
-.translation-ja {
+.lang-ja, .transcript-ja, .translation-ja {
   font-family: ${settings.japaneseFont} !important;
-  color: ${settings.textColor} !important;
-  ${translationGlow}
-  animation: ${animationName} ${settings.animationSpeed}s ease-out${settings.animationType === 'none' ? '' : ' 0.2s'} forwards !important;
 }
 
-/* Korean translation text (adaptable - works when Korean is a translation) */
-.translation-ko {
+.lang-ko, .transcript-ko, .translation-ko {
   font-family: ${settings.koreanFont} !important;
-  color: ${settings.textColor} !important;
-  ${translationGlow}
-  animation: ${animationName} ${settings.animationSpeed}s ease-out${settings.animationType === 'none' ? '' : ' 0.4s'} forwards !important;
 }
+
+.lang-unknown, .transcript-unknown, .translation-unknown {
+  font-family: ${settings.transcriptFont} !important;
+}
+
+${settings.staggerEnabled ? `
+.translation-line:nth-child(3) {
+  animation-delay: ${settings.staggerTime}s !important;
+}
+.translation-line:nth-child(4) {
+  animation-delay: ${settings.staggerTime * 2}s !important;
+}
+.translation-line:nth-child(5) {
+  animation-delay: ${settings.staggerTime * 3}s !important;
+}
+` : ''}
 
 ${generateAnimationKeyframes()}
 
-/* Reset animation when content changes */
 .animate-update .translation-line {
   animation-duration: ${settings.animationSpeed}s !important;
   animation-fill-mode: forwards !important;
   animation-timing-function: ease-out !important;
 }
 
-/* Remove conflicting animations and overflow settings from sliding text */
 .transcript-line.sliding-text {
   opacity: 1 !important;
   overflow-x: visible !important;
@@ -1157,13 +1449,11 @@ ${generateAnimationKeyframes()}
   position: absolute !important;
 }
 
-/* Ensure proper stacking and visibility */
 .export-view {
   position: relative !important;
   z-index: 1000 !important;
 }
 
-/* Fix descender clipping in sliding window mode */
 .sliding-window-container {
   display: flex !important;
   align-items: center !important;
@@ -1172,17 +1462,14 @@ ${generateAnimationKeyframes()}
   overflow-y: visible !important;
 }
 
-/* Compensate for sliding window extra height in punctuation mode */
 .sliding-window-container.punctuation-enabled {
 }
 
-/* Make sure animations work properly in OBS */
 .translation-line {
   will-change: opacity, transform !important;
   backface-visibility: hidden !important;
 }
 
-/* Override base CSS universal overflow rule for translation lines */
 .export-view .translation-line {
   overflow: visible !important;
 }`;
@@ -1214,16 +1501,16 @@ ${generateAnimationKeyframes()}
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-[#1e1e1e] text-[#efefef]">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <Link to="/" className="text-blue-400 hover:text-blue-300 mb-4 inline-block">
+          <Link to="/" className="text-[#efefef]/70 hover:text-[#efefef] mb-4 inline-block transition-colors">
             {t.backToMain}
           </Link>
           <h1 className="text-4xl font-bold mb-2">
             {t.cssCustomizer}
           </h1>
-          <p className="text-gray-400">
+          <p className="text-[#606060]">
             {t.customizeAppearance}
           </p>
         </div>
@@ -1231,11 +1518,68 @@ ${generateAnimationKeyframes()}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Settings Panel */}
           <div className="space-y-6">
-            <div className="bg-gray-900 rounded-lg p-6">
+            {/* Preset Selector */}
+            <div className="bg-[#2d2d2d] rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-4">
+                {t.stylePresets}
+              </h2>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Default Preset */}
+                <button
+                  onClick={() => handlePresetChange('default')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${selectedPreset === 'default'
+                    ? 'border-[#2196F3] bg-[#2196F3]/20'
+                    : 'border-[#efefef]/30 hover:border-[#efefef]/50 bg-[#1e1e1e]'
+                    }`}
+                >
+                  <div className="font-semibold text-[#efefef]">{t.presetDefault}</div>
+                  <div className="text-sm text-[#efefef]/60 mt-1">{t.presetDefaultDesc}</div>
+                </button>
+
+                {/* Sophisticated Preset */}
+                <button
+                  onClick={() => handlePresetChange('sophisticated')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${selectedPreset === 'sophisticated'
+                    ? 'border-[#8b7355] bg-[#8b7355]/20'
+                    : 'border-[#efefef]/30 hover:border-[#efefef]/50 bg-[#1e1e1e]'
+                    }`}
+                >
+                  <div className="font-semibold text-[#f0e6d3]">{t.presetSophisticated}</div>
+                  <div className="text-sm text-[#efefef]/60 mt-1">{t.presetSophisticatedDesc}</div>
+                </button>
+
+                {/* Whimsy Preset */}
+                <button
+                  onClick={() => handlePresetChange('whimsy')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${selectedPreset === 'whimsy'
+                    ? 'border-[#ff6b9d] bg-[#ff6b9d]/20'
+                    : 'border-[#efefef]/30 hover:border-[#efefef]/50 bg-[#1e1e1e]'
+                    }`}
+                >
+                  <div className="font-semibold text-[#fff5f8]">{t.presetWhimsy}</div>
+                  <div className="text-sm text-[#efefef]/60 mt-1">{t.presetWhimsyDesc}</div>
+                </button>
+
+                {/* Custom Preset */}
+                <button
+                  onClick={() => handlePresetChange('custom')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${selectedPreset === 'custom'
+                    ? 'border-[#efefef] bg-[#efefef]/20'
+                    : 'border-[#efefef]/30 hover:border-[#efefef]/50 bg-[#1e1e1e]'
+                    }`}
+                >
+                  <div className="font-semibold text-[#efefef]">{t.presetCustom}</div>
+                  <div className="text-sm text-[#efefef]/60 mt-1">{t.presetCustomDesc}</div>
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-[#2d2d2d] rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">
                 {t.fontSettings}
               </h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <FontSelector
@@ -1279,11 +1623,11 @@ ${generateAnimationKeyframes()}
               </div>
             </div>
 
-            <div className="bg-gray-900 rounded-lg p-6">
+            <div className="bg-[#2d2d2d] rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">
                 {t.appearance}
               </h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
@@ -1291,44 +1635,146 @@ ${generateAnimationKeyframes()}
                   </label>
                   <input
                     type="color"
-                    className="w-full h-10 rounded-lg border border-gray-700 bg-gray-800"
+                    className="w-full h-10 rounded-lg border border-[#efefef]/50 bg-[#606060]"
                     value={settings.textColor}
                     onChange={(e) => updateSetting('textColor', e.target.value)}
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    {t.glowColor}
-                  </label>
-                  <input
-                    type="color"
-                    className="w-full h-10 rounded-lg border border-gray-700 bg-gray-800"
-                    value={settings.glowColor}
-                    onChange={(e) => updateSetting('glowColor', e.target.value)}
-                  />
+                {/* Glow Settings */}
+                <div className="pt-4 border-t border-[#efefef]/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">
+                      {t.enableGlow}
+                    </label>
+                    <button
+                      onClick={() => updateSetting('glowEnabled', !settings.glowEnabled)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${settings.glowEnabled ? 'bg-[#2196F3]' : 'bg-[#606060]'}`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-[#efefef] transition-transform ${settings.glowEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                      />
+                    </button>
+                  </div>
+
+                  {settings.glowEnabled && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          {t.glowColor}
+                        </label>
+                        <input
+                          type="color"
+                          className="w-full h-10 rounded-lg border border-[#efefef]/50 bg-[#606060]"
+                          value={settings.glowColor}
+                          onChange={(e) => updateSetting('glowColor', e.target.value)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          {t.glowIntensity}: {settings.glowIntensity}%
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          className="w-full"
+                          value={settings.glowIntensity}
+                          onChange={(e) => updateSetting('glowIntensity', parseInt(e.target.value))}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    {t.glowIntensity}: {settings.glowIntensity}%
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    className="w-full"
-                    value={settings.glowIntensity}
-                    onChange={(e) => updateSetting('glowIntensity', parseInt(e.target.value))}
-                  />
+                {/* Border Settings */}
+                <div className="pt-4 border-t border-[#efefef]/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">
+                      {t.enableBorder}
+                    </label>
+                    <button
+                      onClick={() => updateSetting('borderEnabled', !settings.borderEnabled)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${settings.borderEnabled ? 'bg-[#2196F3]' : 'bg-[#606060]'}`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-[#efefef] transition-transform ${settings.borderEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                      />
+                    </button>
+                  </div>
+
+                  {settings.borderEnabled && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          {t.borderColor}
+                        </label>
+                        <input
+                          type="color"
+                          className="w-full h-10 rounded-lg border border-[#efefef]/50 bg-[#606060]"
+                          value={settings.borderColor}
+                          onChange={(e) => updateSetting('borderColor', e.target.value)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          {t.borderWidth}: {settings.borderWidth}px
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="10"
+                          step="0.5"
+                          className="w-full"
+                          value={settings.borderWidth}
+                          onChange={(e) => updateSetting('borderWidth', parseFloat(e.target.value))}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div>
+                {/* Shadow Settings */}
+                <div className="pt-4 border-t border-[#efefef]/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">
+                      {t.enableShadow}
+                    </label>
+                    <button
+                      onClick={() => updateSetting('shadowEnabled', !settings.shadowEnabled)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${settings.shadowEnabled ? 'bg-[#2196F3]' : 'bg-[#606060]'}`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-[#efefef] transition-transform ${settings.shadowEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                      />
+                    </button>
+                  </div>
+
+                  {settings.shadowEnabled && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          {t.shadowColor}
+                        </label>
+                        <input
+                          type="color"
+                          className="w-full h-10 rounded-lg border border-[#efefef]/50 bg-[#606060]"
+                          value={settings.shadowColor}
+                          onChange={(e) => updateSetting('shadowColor', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t border-[#efefef]/10">
                   <label className="block text-sm font-medium mb-2">
                     {t.spacing}
                   </label>
                   <select
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-[#606060] border border-[#efefef]/50 rounded-lg focus:ring-2 focus:ring-[#efefef]/50 text-[#efefef] hover:bg-[#707070] transition-colors"
                     value={settings.spacing}
                     onChange={(e) => updateSetting('spacing', e.target.value)}
                   >
@@ -1340,11 +1786,11 @@ ${generateAnimationKeyframes()}
               </div>
             </div>
 
-            <div className="bg-gray-900 rounded-lg p-6">
+            <div className="bg-[#2d2d2d] rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">
                 {t.fontSizes}
               </h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
@@ -1378,18 +1824,18 @@ ${generateAnimationKeyframes()}
               </div>
             </div>
 
-            <div className="bg-gray-900 rounded-lg p-6">
+            <div className="bg-[#2d2d2d] rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">
                 {t.animationTranslationsOnly}
               </h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     {t.animationType}
                   </label>
                   <select
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-[#606060] border border-[#efefef]/50 rounded-lg focus:ring-2 focus:ring-[#efefef]/50 text-[#efefef] hover:bg-[#707070] transition-colors"
                     value={settings.animationType}
                     onChange={(e) => updateSetting('animationType', e.target.value)}
                   >
@@ -1415,16 +1861,49 @@ ${generateAnimationKeyframes()}
                     onChange={(e) => updateSetting('animationSpeed', parseFloat(e.target.value))}
                   />
                 </div>
+
+                {/* Stagger Settings */}
+                <div className="pt-4 border-t border-[#efefef]/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">
+                      {t.enableStagger}
+                    </label>
+                    <button
+                      onClick={() => updateSetting('staggerEnabled', !settings.staggerEnabled)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${settings.staggerEnabled ? 'bg-[#2196F3]' : 'bg-[#606060]'}`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-[#efefef] transition-transform ${settings.staggerEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                      />
+                    </button>
+                  </div>
+
+                  {settings.staggerEnabled && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        {t.staggerTime}: {settings.staggerTime}s
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="0.6"
+                        step="0.05"
+                        className="w-full"
+                        value={settings.staggerTime}
+                        onChange={(e) => updateSetting('staggerTime', parseFloat(e.target.value))}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             <button
               onClick={copyToClipboard}
-              className={`w-full py-3 px-6 rounded-lg font-semibold transition-colors ${
-                copiedToClipboard 
-                  ? 'bg-green-600 hover:bg-green-700' 
-                  : 'bg-blue-600 hover:bg-blue-700'
-              }`}
+              className={`w-full py-3 px-6 rounded-lg font-semibold transition-colors ${copiedToClipboard
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-[#606060] hover:bg-[#707070] text-[#efefef]'
+                }`}
             >
               {copiedToClipboard ? t.copiedToClipboard : t.exportCSS}
             </button>
@@ -1432,28 +1911,28 @@ ${generateAnimationKeyframes()}
 
           {/* Preview Panel */}
           <div className="space-y-6 lg:sticky lg:top-8 lg:self-start">
-            <div className="bg-gray-900 rounded-lg p-6 sticky top-4" style={{ overflow: 'visible' }}>
+            <div className="bg-[#2d2d2d] rounded-lg p-6 sticky top-4" style={{ overflow: 'visible' }}>
               <h2 className="text-xl font-semibold mb-4">
                 {t.livePreview}
               </h2>
-              
+
               {!fontsLoaded && (
-                <div className="bg-yellow-900 border border-yellow-600 rounded-lg p-3 mb-4">
-                  <p className="text-yellow-200 text-sm">
+                <div className="bg-[#404040] border border-[#efefef]/30 rounded-lg p-3 mb-4">
+                  <p className="text-[#efefef]/80 text-sm">
                     {t.loadingFonts}
                   </p>
                 </div>
               )}
-              
+
               <div className="bg-black rounded-lg p-8 min-h-[400px] flex flex-col justify-center space-y-4" style={{ overflow: 'visible' }}>
-                <div 
+                <div
                   key={`transcript-${animationTrigger}`}
                   className="transcript-line"
                   style={{
                     fontFamily: formatFontFamily(
                       sourceLanguage === 'ja' ? settings.japaneseFont :
-                      sourceLanguage === 'ko' ? settings.koreanFont :
-                      settings.transcriptFont
+                        sourceLanguage === 'ko' ? settings.koreanFont :
+                          settings.transcriptFont
                     ),
                     fontSize: `${settings.transcriptSize}rem`,
                     fontWeight: 600,
@@ -1462,9 +1941,21 @@ ${generateAnimationKeyframes()}
                     margin: `0 0 ${generateSpacingValues().transcriptMargin} 0`,
                     lineHeight: 1.3,
                     paddingBottom: '0.2rem',
-                    textShadow: settings.glowIntensity > 0 
-                      ? `0 0 ${Math.min(10 * ((settings.glowIntensity / 100) * 1.25), 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * ((settings.glowIntensity / 100) * 1.25), 1))}, 0 0 ${Math.min(20 * ((settings.glowIntensity / 100) * 1.25), 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * ((settings.glowIntensity / 100) * 1.25), 1))}, 0 0 ${Math.min(28 * ((settings.glowIntensity / 100) * 1.25), 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * ((settings.glowIntensity / 100) * 1.25), 1))}`
-                      : 'none',
+                    WebkitTextStroke: settings.borderEnabled ? `${settings.borderWidth}px ${settings.borderColor}` : '0',
+                    paintOrder: 'stroke fill',
+                    textShadow: (() => {
+                      const echoes = [];
+                      const intensity = (settings.glowIntensity / 100) * 1.25;
+                      if (settings.glowEnabled && settings.glowIntensity > 0) {
+                        echoes.push(`0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}`);
+                        echoes.push(`0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}`);
+                        echoes.push(`0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))}`);
+                      }
+                      if (settings.shadowEnabled) {
+                        echoes.push(`2px 2px 4px ${hexToRgba(settings.shadowColor || '#000000', 0.8)}`);
+                      }
+                      return echoes.length > 0 ? echoes.join(', ') : 'none';
+                    })(),
                     overflowX: 'hidden',
                     overflowY: 'visible',
                     position: 'relative',
@@ -1472,29 +1963,25 @@ ${generateAnimationKeyframes()}
                 >
                   {getPreviewSamples().source}
                 </div>
-                
+
                 {getPreviewSamples().translations.map((translation, index) => {
                   const transitionStyles = getTransitionStyles(
                     animationState === 'visible',
                     settings.animationType,
                     settings.animationSpeed,
-                    translation.code
+                    index
                   );
-                  
-                  const intensity = (settings.glowIntensity / 100) * 1.25; // Scale so 100% = old 125%
-                  const translationGlow = settings.glowIntensity > 0
-                    ? `0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}, 0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}, 0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))}`
-                    : 'none';
+
 
                   return (
-                    <div 
+                    <div
                       key={`${translation.code}-${animationTrigger}`}
                       className={`translation-line translation-${translation.code}`}
                       style={{
                         fontFamily: formatFontFamily(
                           translation.code === 'ja' ? settings.japaneseFont :
-                          translation.code === 'ko' ? settings.koreanFont :
-                          settings.transcriptFont
+                            translation.code === 'ko' ? settings.koreanFont :
+                              settings.transcriptFont
                         ),
                         fontSize: `${settings.translationSize}rem`,
                         fontWeight: 500,
@@ -1502,7 +1989,21 @@ ${generateAnimationKeyframes()}
                         textAlign: 'center',
                         margin: generateSpacingValues().translationMargin,
                         lineHeight: 1.3,
-                        textShadow: translationGlow,
+                        WebkitTextStroke: settings.borderEnabled ? `${settings.borderWidth}px ${settings.borderColor}` : '0',
+                        paintOrder: 'stroke fill',
+                        textShadow: (() => {
+                          const echoes = [];
+                          const intensity = (settings.glowIntensity / 100) * 1.25;
+                          if (settings.glowEnabled && settings.glowIntensity > 0) {
+                            echoes.push(`0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}`);
+                            echoes.push(`0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}`);
+                            echoes.push(`0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))}`);
+                          }
+                          if (settings.shadowEnabled) {
+                            echoes.push(`2px 2px 4px ${hexToRgba(settings.shadowColor || '#000000', 0.8)}`);
+                          }
+                          return echoes.length > 0 ? echoes.join(', ') : 'none';
+                        })(),
                         overflow: 'visible',
                         position: 'relative',
                         // Apply transition-based animation styles
@@ -1516,11 +2017,12 @@ ${generateAnimationKeyframes()}
               </div>
             </div>
 
-            <div className="bg-gray-900 rounded-lg p-6">
+            {/* Quick Instructions */}
+            <div className="bg-[#2d2d2d] rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">
                 {t.instructions}
               </h2>
-              <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+              <ol className="list-decimal list-inside space-y-2 text-sm text-[#efefef]/70">
                 <li>{t.instruction1}</li>
                 <li>{t.instruction2}</li>
                 <li>{t.instruction3}</li>
@@ -1531,9 +2033,154 @@ ${generateAnimationKeyframes()}
             </div>
           </div>
         </div>
+
+        {/* Collapsible How to Make Your Own CSS Section */}
+        <div className="mt-8">
+          <button
+            onClick={() => setIsHelpExpanded(!isHelpExpanded)}
+            className="w-full bg-[#2d2d2d] rounded-lg p-4 flex items-center justify-between hover:bg-[#3d3d3d] transition-colors"
+          >
+            <span className="text-lg font-semibold text-[#efefef]">
+              {t.howToMakeOwnCSS}
+            </span>
+            <svg
+              className={`w-6 h-6 text-[#efefef]/70 transform transition-transform ${isHelpExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {isHelpExpanded && (
+            <div className="bg-[#2d2d2d] rounded-b-lg border-t border-[#efefef]/10 p-6">
+              <p className="text-[#efefef]/80 mb-6">
+                {t.helpIntro}
+              </p>
+
+              {/* Two-column interactive layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left side: Complete CSS Example */}
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-[#efefef] mb-3">Complete Example</h3>
+                  <div className="bg-[#0d0d0d] rounded-lg p-4 font-mono text-xs overflow-x-auto leading-relaxed">
+                    {/* Global Section */}
+                    <div
+                      className={`cursor-pointer transition-all duration-200 p-1 rounded ${hoveredSection === 'global' ? 'bg-[#2196F3]/20' : 'hover:bg-[#efefef]/5'}`}
+                      onMouseEnter={() => setHoveredSection('global')}
+                      onMouseLeave={() => setHoveredSection(null)}
+                    >
+                      <div className="text-[#6A9955]">/* 1. Global (Shared Styles) */</div>
+                      <div className="text-[#4fc3f7]">.transcript-line, .translation-line {'{'}</div>
+                      <div className="pl-4 text-[#efefef]/70">
+                        <div><span className="text-[#9cdcfe]">color</span>: <span className="text-[#ce9178]">#ffffff</span> !important;</div>
+                        <div><span className="text-[#9cdcfe]">-webkit-text-stroke</span>: <span className="text-[#b5cea8]">1px #000</span>;</div>
+                        <div><span className="text-[#9cdcfe]">text-shadow</span>: <span className="text-[#b5cea8]">0 0 10px</span> rgba(...);</div>
+                      </div>
+                      <div className="text-[#4fc3f7]">{'}'}</div>
+                    </div>
+
+                    <div className="h-4" />
+
+                    {/* Language Section */}
+                    <div
+                      className={`cursor-pointer transition-all duration-200 p-1 rounded ${hoveredSection === 'language' ? 'bg-[#2196F3]/20' : 'hover:bg-[#efefef]/5'}`}
+                      onMouseEnter={() => setHoveredSection('language')}
+                      onMouseLeave={() => setHoveredSection(null)}
+                    >
+                      <div className="text-[#6A9955]">/* 2. Language (Specific Fonts) */</div>
+                      <div className="text-[#4fc3f7]">.translation-ja {'{'}</div>
+                      <div className="pl-4 text-[#efefef]/70">
+                        <div><span className="text-[#9cdcfe]">font-family</span>: <span className="text-[#6A9955]">'Noto Sans JP'</span>;</div>
+                      </div>
+                      <div className="text-[#4fc3f7]">{'}'}</div>
+                    </div>
+
+                    <div className="h-4" />
+
+                    {/* Role Section */}
+                    <div
+                      className={`cursor-pointer transition-all duration-200 p-1 rounded ${hoveredSection === 'role' ? 'bg-[#2196F3]/20' : 'hover:bg-[#efefef]/5'}`}
+                      onMouseEnter={() => setHoveredSection('role')}
+                      onMouseLeave={() => setHoveredSection(null)}
+                    >
+                      <div className="text-[#6A9955]">/* 3. Role (Animations/Unique styles) */</div>
+                      <div className="text-[#4fc3f7]">.translation-line {'{'}</div>
+                      <div className="pl-4 text-[#efefef]/70">
+                        <div><span className="text-[#9cdcfe]">animation</span>: <span className="text-[#dcdcaa]">fadeIn</span> <span className="text-[#b5cea8]">0.4s</span>;</div>
+                      </div>
+                      <div className="text-[#4fc3f7]">{'}'}</div>
+                    </div>
+
+                    <div className="h-4" />
+
+                    {/* Animation Section */}
+                    <div
+                      className={`cursor-pointer transition-all duration-200 p-1 rounded ${hoveredSection === 'animation' ? 'bg-[#2196F3]/20' : 'hover:bg-[#efefef]/5'}`}
+                      onMouseEnter={() => setHoveredSection('animation')}
+                      onMouseLeave={() => setHoveredSection(null)}
+                    >
+                      <div><span className="text-[#c586c0]">@keyframes</span> <span className="text-[#dcdcaa]">fadeIn</span> {'{'}</div>
+                      <div className="pl-4 text-[#efefef]/70">
+                        <div>0% {'{'} <span className="text-[#9cdcfe]">opacity</span>: <span className="text-[#b5cea8]">0</span>; {'}'}</div>
+                        <div>100% {'{'} <span className="text-[#9cdcfe]">opacity</span>: <span className="text-[#b5cea8]">1</span>; {'}'}</div>
+                      </div>
+                      <div className="text-[#c586c0]">{'}'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right side: Reference */}
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-[#efefef] mb-3">{t.helpCSSReferenceTitle}</h3>
+
+                  <div className={`bg-[#1e1e1e] rounded-lg p-4 transition-all duration-200 ${hoveredSection === 'global' ? 'ring-2 ring-[#2196F3] bg-[#2196F3]/10' : ''}`}>
+                    <h4 className="font-semibold text-[#efefef] mb-1">{t.helpGlobalTitle}</h4>
+                    <p className="text-[#efefef]/70 text-sm">{t.helpGlobalDesc}</p>
+                  </div>
+
+                  <div className={`bg-[#1e1e1e] rounded-lg p-4 transition-all duration-200 ${hoveredSection === 'language' ? 'ring-2 ring-[#2196F3] bg-[#2196F3]/10' : ''}`}>
+                    <h4 className="font-semibold text-[#efefef] mb-1">{t.helpLanguageTitle}</h4>
+                    <p className="text-[#efefef]/70 text-sm">{t.helpLanguageDesc}</p>
+                  </div>
+
+                  <div className={`bg-[#1e1e1e] rounded-lg p-4 transition-all duration-200 ${hoveredSection === 'role' ? 'ring-2 ring-[#2196F3] bg-[#2196F3]/10' : ''}`}>
+                    <h4 className="font-semibold text-[#efefef] mb-1">{t.helpRoleTitle}</h4>
+                    <p className="text-[#efefef]/70 text-sm">{t.helpRoleDesc}</p>
+                  </div>
+
+                  <div className={`bg-[#1e1e1e] rounded-lg p-4 transition-all duration-200 ${hoveredSection === 'animation' ? 'ring-2 ring-[#2196F3] bg-[#2196F3]/10' : ''}`}>
+                    <h4 className="font-semibold text-[#efefef] mb-1">{t.helpAnimationsTitle}</h4>
+                    <p className="text-[#efefef]/70 text-sm">{t.helpAnimationsDesc}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tips */}
+              <div className="space-y-3 pt-6 mt-6 border-t border-[#efefef]/10">
+                <h3 className="text-lg font-semibold text-[#efefef]">{t.helpTipsTitle}</h3>
+                <ul className="space-y-2 text-[#efefef]/70">
+                  <li className="flex items-start gap-2">
+                    <span className="text-yellow-400 mt-0.5">💡</span>
+                    <span>{t.helpTip1}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-yellow-400 mt-0.5">💡</span>
+                    <span>{t.helpTip2}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-yellow-400 mt-0.5">💡</span>
+                    <span>{t.helpTip3}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
-export default CSSCustomizer; 
+export default CSSCustomizer;
