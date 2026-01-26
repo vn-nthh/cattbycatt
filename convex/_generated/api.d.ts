@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as auth from "../auth.js";
+import type * as deepgramTranscription from "../deepgramTranscription.js";
 import type * as geminiTranscription from "../geminiTranscription.js";
 import type * as groqTranscription from "../groqTranscription.js";
 import type * as http from "../http.js";
@@ -31,6 +32,7 @@ import type * as translate from "../translate.js";
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  deepgramTranscription: typeof deepgramTranscription;
   geminiTranscription: typeof geminiTranscription;
   groqTranscription: typeof groqTranscription;
   http: typeof http;

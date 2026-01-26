@@ -44,6 +44,7 @@ interface MainAppTranslations {
   asrWebSpeech: string;
   asrWhisper: string;
   asrGemini: string;
+  asrDeepgram: string;
   translation: string;
   translationGemini: string;
   translationGpt: string;
@@ -78,6 +79,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWebSpeech: "Default (WebSpeech API)",
     asrWhisper: "Whisper",
     asrGemini: "Gemini",
+    asrDeepgram: "Nova-3 (Deepgram)",
     translation: "Translation",
     translationGemini: "Default (Gemini 2.5 Flash Lite)",
     translationGpt: "GPT-4 Nano",
@@ -103,6 +105,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWebSpeech: "デフォルト（WebSpeech API）",
     asrWhisper: "Whisper",
     asrGemini: "Gemini",
+    asrDeepgram: "Nova-3 (Deepgram)",
     translation: "翻訳",
     translationGemini: "デフォルト（Gemini 2.5 Flash Lite）",
     translationGpt: "GPT-4 Nano",
@@ -128,6 +131,7 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWebSpeech: "기본값 (WebSpeech API)",
     asrWhisper: "Whisper",
     asrGemini: "Gemini",
+    asrDeepgram: "Nova-3 (Deepgram)",
     translation: "번역",
     translationGemini: "기본값 (Gemini 2.5 Flash Lite)",
     translationGpt: "GPT-4 Nano",
@@ -247,7 +251,7 @@ function Content() {
   const [isStarted, setIsStarted] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [useGpt, setUseGpt] = useState(false);
-  const [asrModel, setAsrModel] = useState<'webspeech' | 'whisper' | 'gemini'>('webspeech');
+  const [asrModel, setAsrModel] = useState<'webspeech' | 'whisper' | 'gemini' | 'deepgram'>('webspeech');
 
 
 
@@ -281,6 +285,7 @@ function Content() {
   const translateText = useAction(api.translate.translateText);
   const transcribeWithGroq = useAction(api.groqTranscription.transcribeAudioStream);
   const transcribeWithGemini = useAction(api.geminiTranscription.transcribeAudioStream);
+  const transcribeWithDeepgram = useAction(api.deepgramTranscription.transcribeAudioStream);
   const sessionIdRef = useRef(getSessionId());
 
   // Add ref to track if we want to keep listening (for proper cleanup)
@@ -293,6 +298,13 @@ function Content() {
   // Refs for background execution and silence detection
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Deepgram Streaming Refs
+  const deepgramWsRef = useRef<WebSocket | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const accumulatedTranscriptRef = useRef<string>("");
+  const deepgramSilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const getDeepgramApiKey = useAction(api.deepgramTranscription.getDeepgramApiKey);
 
   // Initialize silent audio
   useEffect(() => {
@@ -337,10 +349,17 @@ function Content() {
 
 
   // Initialize MicVAD for Advanced ASR
-  const initializeAdvancedASR = async (selectedAsrModel: 'whisper' | 'gemini') => {
+  const initializeAdvancedASR = async (selectedAsrModel: 'whisper' | 'gemini' | 'deepgram') => {
     // Select the appropriate transcription function based on ASR model
-    const transcribeAudio = selectedAsrModel === 'gemini' ? transcribeWithGemini : transcribeWithGroq;
-    
+    let transcribeAudio;
+    if (selectedAsrModel === 'gemini') {
+      transcribeAudio = transcribeWithGemini;
+    } else if (selectedAsrModel === 'deepgram') {
+      transcribeAudio = transcribeWithDeepgram;
+    } else {
+      transcribeAudio = transcribeWithGroq;
+    }
+
     try {
       setVadStatus('listening');
 
@@ -361,7 +380,7 @@ function Content() {
           try {
             // Check audio duration - limit to 30 seconds to prevent large files
             const durationInSeconds = audio.length / 16000; // 16kHz sample rate
-            
+
             if (durationInSeconds > 30) {
               const maxSamples = 30 * 16000; // 30 seconds at 16kHz
               audio = audio.slice(0, maxSamples);
@@ -372,7 +391,7 @@ function Content() {
 
             // Check file size before sending
             const fileSizeInMB = wavBuffer.byteLength / (1024 * 1024);
-            
+
             if (fileSizeInMB > 25) {
               throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB. Please speak for shorter periods.`);
             }
@@ -382,7 +401,7 @@ function Content() {
               language: sourceLanguage,
               sessionId: sessionIdRef.current,
             });
-            
+
             if (result.text.trim()) {
               setTranscript(result.text);
               currentTranscriptRef.current = result.text;
@@ -439,6 +458,127 @@ function Content() {
     }
   };
 
+  // Initialize Deepgram Streaming
+  const initializeDeepgramStreaming = async () => {
+    try {
+      const apiKey = await getDeepgramApiKey();
+
+      // Deepgram WebSocket URL
+      const params = new URLSearchParams({
+        model: 'nova-3',
+        language: sourceLanguage,
+        smart_format: 'true',
+        interim_results: 'true',
+        endpointing: '500',
+      });
+
+      const ws = new WebSocket(
+        `wss://api.deepgram.com/v1/listen?${params.toString()}`,
+        ['token', apiKey]
+      );
+
+      ws.onopen = () => {
+        console.log('[DEEPGRAM] WebSocket opened');
+        startMediaRecorder(ws);
+      };
+
+      ws.onmessage = async (event) => {
+        const data = JSON.parse(event.data);
+        const transcriptText = data.channel?.alternatives?.[0]?.transcript;
+        const isFinal = data.is_final;
+
+        if (transcriptText) {
+          // Clear any existing silence timer
+          if (deepgramSilenceTimerRef.current) {
+            clearTimeout(deepgramSilenceTimerRef.current);
+          }
+
+          let displayText = "";
+          const prevAccumulated = accumulatedTranscriptRef.current;
+
+          if (isFinal) {
+            // Add to accumulated transcript
+            accumulatedTranscriptRef.current = (prevAccumulated + " " + transcriptText).trim();
+            displayText = accumulatedTranscriptRef.current;
+          } else {
+            // Show accumulated + current interim
+            displayText = (prevAccumulated + " " + transcriptText).trim();
+          }
+
+          setTranscript(displayText);
+          currentTranscriptRef.current = displayText;
+
+          // Only translate if it's a final result (from Deepgram's perspective)
+          if (isFinal && transcriptText.trim()) {
+            const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
+
+            try {
+              // Translate the FULL accumulated text for context
+              const translationsResult = await Promise.all(
+                targetLanguages.map(targetLang =>
+                  translateText({
+                    text: displayText,
+                    sourceLanguage,
+                    targetLanguage: targetLang,
+                    useGpt,
+                  }).then(translation => ({ lang: targetLang, translation }))
+                )
+              );
+
+              const newTranslations = translationsResult.reduce(
+                (acc, { lang, translation }) => ({
+                  ...acc,
+                  [lang]: translation,
+                }),
+                {}
+              );
+
+              setTranslations(newTranslations);
+            } catch {
+              // Translation failed silently
+            }
+          }
+
+          // Restart silence timer to clear accumulated state after 3 seconds of no activity
+          deepgramSilenceTimerRef.current = setTimeout(() => {
+            accumulatedTranscriptRef.current = "";
+            console.log("[DEEPGRAM] Silence detected, clearing accumulation buffer");
+          }, 3000);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('[DEEPGRAM] WebSocket error:', error);
+      };
+
+      ws.onclose = () => {
+        console.log('[DEEPGRAM] WebSocket closed');
+      };
+
+      deepgramWsRef.current = ws;
+    } catch (error) {
+      console.error('[DEEPGRAM] Initialization failed:', error);
+    }
+  };
+
+  const startMediaRecorder = async (ws: WebSocket) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+          ws.send(event.data);
+        }
+      };
+
+      mediaRecorder.start(250); // Send 250ms chunks
+      mediaRecorderRef.current = mediaRecorder;
+    } catch (error) {
+      console.error('[DEEPGRAM] MediaRecorder failed:', error);
+    }
+  };
+
   // Helper function to convert Float32Array to WAV format
   const float32ArrayToWav = (buffer: Float32Array, sampleRate: number): ArrayBuffer => {
     const length = buffer.length;
@@ -491,17 +631,39 @@ function Content() {
     // Start silent audio to keep tab active
     audioRef.current?.play().catch(e => console.log("Audio play failed", e));
 
-    // Use Advanced ASR (MicVAD + Whisper/Gemini) if enabled
+    // Use Advanced ASR (MicVAD + Whisper/Gemini) or Deepgram Streaming if enabled
     if (asrModel !== 'webspeech') {
-      initializeAdvancedASR(asrModel).then(vad => {
-        if (vad) {
-          vad.start();
-          setIsRecording(true);
-        }
-      });
+      if (asrModel === 'deepgram') {
+        initializeDeepgramStreaming();
+      } else {
+        initializeAdvancedASR(asrModel).then(vad => {
+          if (vad) {
+            vad.start();
+            setIsRecording(true);
+          }
+        });
+      }
 
       return () => {
         shouldKeepListeningRef.current = false;
+
+        // Cleanup Deepgram
+        if (deepgramWsRef.current) {
+          deepgramWsRef.current.close();
+          deepgramWsRef.current = null;
+        }
+        if (mediaRecorderRef.current) {
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+          mediaRecorderRef.current = null;
+        }
+        if (deepgramSilenceTimerRef.current) {
+          clearTimeout(deepgramSilenceTimerRef.current);
+          deepgramSilenceTimerRef.current = null;
+        }
+        accumulatedTranscriptRef.current = "";
+
+        // Cleanup VAD
         if (micVAD) {
           micVAD.pause();
           setIsRecording(false);
@@ -657,8 +819,8 @@ function Content() {
         // Failed to stop recognition
       }
     };
-  // Note: translateText, transcribeWithGroq, and transcribeWithGemini are stable Convex action references
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Note: translateText, transcribeWithGroq, and transcribeWithGemini are stable Convex action references
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceLanguage, isStarted, useGpt, asrModel]);
 
   // Start/stop listening
@@ -688,6 +850,32 @@ function Content() {
         // Failed to stop MicVAD
       }
     }
+
+    // Stop Deepgram Streaming if active
+    if (deepgramWsRef.current) {
+      try {
+        deepgramWsRef.current.close();
+        deepgramWsRef.current = null;
+      } catch {
+        // Failed to close Deepgram WS
+      }
+    }
+
+    if (mediaRecorderRef.current) {
+      try {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        mediaRecorderRef.current = null;
+      } catch {
+        // Failed to stop MediaRecorder
+      }
+    }
+
+    if (deepgramSilenceTimerRef.current) {
+      clearTimeout(deepgramSilenceTimerRef.current);
+      deepgramSilenceTimerRef.current = null;
+    }
+    accumulatedTranscriptRef.current = "";
 
     // Clear speaking state and timeouts
     isSpeakingRef.current = false;
@@ -727,11 +915,10 @@ function Content() {
             <button
               onClick={sourceLanguage ? startListening : undefined}
               disabled={!sourceLanguage}
-              className={`transition-all duration-200 ${
-                sourceLanguage
-                  ? "cursor-pointer hover:scale-105 active:scale-95"
-                  : "opacity-50 cursor-not-allowed"
-              }`}
+              className={`transition-all duration-200 ${sourceLanguage
+                ? "cursor-pointer hover:scale-105 active:scale-95"
+                : "opacity-50 cursor-not-allowed"
+                }`}
               title={sourceLanguage ? t.startListening : t.selectLanguage}
             >
               <img
@@ -785,11 +972,12 @@ function Content() {
                 <select
                   className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
                   value={asrModel}
-                  onChange={(e) => setAsrModel(e.target.value as 'webspeech' | 'whisper' | 'gemini')}
+                  onChange={(e) => setAsrModel(e.target.value as 'webspeech' | 'whisper' | 'gemini' | 'deepgram')}
                 >
                   <option value="webspeech">{t.asrWebSpeech}</option>
                   <option value="whisper">{t.asrWhisper}</option>
                   <option value="gemini">{t.asrGemini}</option>
+                  <option value="deepgram">{t.asrDeepgram}</option>
                 </select>
               </div>
             </div>
@@ -864,17 +1052,17 @@ function Content() {
             {Object.keys(LANGUAGES)
               .filter(lang => lang !== sourceLanguage)
               .map((lang) => (
-              <div key={lang} className="p-5 bg-[#1e1e1e]/40 rounded-lg border border-[#606060]/20">
-                <div className="text-sm uppercase text-[#606060] mb-2 tracking-wide label-stroke">
-                  {LANGUAGES[lang as keyof typeof LANGUAGES]}
+                <div key={lang} className="p-5 bg-[#1e1e1e]/40 rounded-lg border border-[#606060]/20">
+                  <div className="text-sm uppercase text-[#606060] mb-2 tracking-wide label-stroke">
+                    {LANGUAGES[lang as keyof typeof LANGUAGES]}
+                  </div>
+                  <p className="text-xl text-[#efefef] leading-relaxed font-readable">
+                    {translations[lang] || (
+                      <span className="text-[#606060] animate-pulse font-readable">{t.listening}</span>
+                    )}
+                  </p>
                 </div>
-                <p className="text-xl text-[#efefef] leading-relaxed font-readable">
-                  {translations[lang] || (
-                    <span className="text-[#606060] animate-pulse font-readable">{t.listening}</span>
-                  )}
-                </p>
-              </div>
-            ))}
+              ))}
           </div>
 
           {/* Footer Actions */}

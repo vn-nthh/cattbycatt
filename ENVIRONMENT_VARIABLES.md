@@ -25,6 +25,13 @@ This document outlines the environment variables required for the CATT by Catt a
 - **How to set**: `convex env set GEMINI_API_KEY your_gemini_api_key_here`
 - **Get API Key**: Visit [https://aistudio.google.com/](https://aistudio.google.com/) to obtain your API key
 
+### Deepgram API (Nova-3 ASR)
+- **Variable Name**: `DEEPGRAM_API_KEY`
+- **Description**: API key for Deepgram's Nova-3 transcription service
+- **Usage**: Used when "Nova-3 (Deepgram)" ASR model is selected for high-speed, accurate speech recognition
+- **How to set**: `convex env set DEEPGRAM_API_KEY your_deepgram_api_key_here`
+- **Get API Key**: Visit [https://console.deepgram.com/](https://console.deepgram.com/) to obtain your API key
+
 ## Deprecated Environment Variables
 
 ### OpenAI API (Deprecated for Translation)
@@ -46,6 +53,9 @@ convex env set GROQ_API_KEY your_groq_api_key_here
 
 # Set Gemini API key for Gemini ASR
 convex env set GEMINI_API_KEY your_gemini_api_key_here
+
+# Set Deepgram API key for Nova-3 ASR
+convex env set DEEPGRAM_API_KEY your_deepgram_api_key_here
 ```
 
 ## Verification
@@ -85,6 +95,14 @@ Users can choose between three ASR (Automatic Speech Recognition) models:
 - **Audio Format**: WAV 16-bit PCM, 16kHz sample rate (sent as base64)
 - **Speech Detection**: Real-time voice activity detection with automatic speech segmentation
 - **Benefits**: Multimodal AI with strong language understanding, good for context-aware transcription
+
+#### 4. Nova-3 (Deepgram)
+- **Model**: `nova-3`
+- **Provider**: Deepgram
+- **VAD Implementation**: MicVAD from `@ricky0123/vad-web`
+- **Audio Format**: WAV 16-bit PCM, 16kHz sample rate
+- **Speech Detection**: Real-time voice activity detection with automatic speech segmentation
+- **Benefits**: Extremely fast and accurate, supports smart formatting (punctuation, casing) out of the box.
 
 ### Translation (OpenRouter)
 
