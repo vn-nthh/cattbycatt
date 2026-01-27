@@ -1093,7 +1093,11 @@ const CSSCustomizer: React.FC = () => {
   // Handle preset selection
   const handlePresetChange = useCallback((preset: PresetType) => {
     setSelectedPreset(preset);
-    if (preset !== 'custom') {
+    if (preset === 'custom') {
+      // Reset to default settings when selecting custom
+      setSettings(DEFAULT_SETTINGS);
+      setFontLoadTrigger(prev => prev + 1);
+    } else {
       setSettings(PRESETS[preset]);
       setFontLoadTrigger(prev => prev + 1);
     }
@@ -1680,6 +1684,7 @@ ${generateAnimationKeyframes()}
                           min="0"
                           max="100"
                           className="w-full"
+                          style={{ accentColor: '#2196F3' }}
                           value={settings.glowIntensity}
                           onChange={(e) => updateSetting('glowIntensity', parseInt(e.target.value))}
                         />
@@ -1728,6 +1733,7 @@ ${generateAnimationKeyframes()}
                           max="10"
                           step="0.5"
                           className="w-full"
+                          style={{ accentColor: '#2196F3' }}
                           value={settings.borderWidth}
                           onChange={(e) => updateSetting('borderWidth', parseFloat(e.target.value))}
                         />
@@ -1802,6 +1808,7 @@ ${generateAnimationKeyframes()}
                     max="5"
                     step="0.1"
                     className="w-full"
+                    style={{ accentColor: '#2196F3' }}
                     value={settings.transcriptSize}
                     onChange={(e) => updateSetting('transcriptSize', parseFloat(e.target.value))}
                   />
@@ -1817,6 +1824,7 @@ ${generateAnimationKeyframes()}
                     max="4"
                     step="0.1"
                     className="w-full"
+                    style={{ accentColor: '#2196F3' }}
                     value={settings.translationSize}
                     onChange={(e) => updateSetting('translationSize', parseFloat(e.target.value))}
                   />
@@ -1857,6 +1865,7 @@ ${generateAnimationKeyframes()}
                     max="2"
                     step="0.1"
                     className="w-full"
+                    style={{ accentColor: '#2196F3' }}
                     value={settings.animationSpeed}
                     onChange={(e) => updateSetting('animationSpeed', parseFloat(e.target.value))}
                   />
@@ -1889,6 +1898,7 @@ ${generateAnimationKeyframes()}
                         max="0.6"
                         step="0.05"
                         className="w-full"
+                        style={{ accentColor: '#2196F3' }}
                         value={settings.staggerTime}
                         onChange={(e) => updateSetting('staggerTime', parseFloat(e.target.value))}
                       />

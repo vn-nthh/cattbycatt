@@ -469,7 +469,7 @@ function Content() {
         language: sourceLanguage,
         smart_format: 'true',
         interim_results: 'true',
-        endpointing: '500',
+        endpointing: '1500',
       });
 
       const ws = new WebSocket(
@@ -513,7 +513,7 @@ function Content() {
             const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
 
             try {
-              // Translate the FULL accumulated text for context
+              // Translate the FULL accumulated text for context (currently just transcriptText)
               const translationsResult = await Promise.all(
                 targetLanguages.map(targetLang =>
                   translateText({
@@ -539,11 +539,10 @@ function Content() {
             }
           }
 
-          // Restart silence timer to clear accumulated state after 3 seconds of no activity
+          // Restart silence timer to clear accumulated state after 5000ms of no activity
           deepgramSilenceTimerRef.current = setTimeout(() => {
             accumulatedTranscriptRef.current = "";
-            console.log("[DEEPGRAM] Silence detected, clearing accumulation buffer");
-          }, 3000);
+          }, 5000);
         }
       };
 
@@ -661,6 +660,7 @@ function Content() {
           clearTimeout(deepgramSilenceTimerRef.current);
           deepgramSilenceTimerRef.current = null;
         }
+        console.log("[DEEPGRAM] CLEANUP - Clearing accumulatedTranscriptRef (was:", accumulatedTranscriptRef.current, ")");
         accumulatedTranscriptRef.current = "";
 
         // Cleanup VAD

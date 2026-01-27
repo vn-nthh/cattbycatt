@@ -16,7 +16,6 @@ async function callOpenRouter(model: string, systemPrompt: string, userContent: 
     throw new Error("OPENROUTER_API_KEY environment variable is not set");
   }
 
-  console.log(`[OpenRouter] Calling model: ${model}`);
 
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -44,8 +43,7 @@ async function callOpenRouter(model: string, systemPrompt: string, userContent: 
   }
 
   const result = await response.json();
-  console.log('[OpenRouter] Raw response:', JSON.stringify(result));
-  
+
   const translation = result.choices?.[0]?.message?.content;
   if (!translation) {
     console.error('[OpenRouter] Empty translation in response:', result);
@@ -53,7 +51,6 @@ async function callOpenRouter(model: string, systemPrompt: string, userContent: 
   }
 
   const cleaned = String(translation).trim().replace(/^["']|["']$/g, '');
-  console.log(`[OpenRouter] Translation complete: "${userContent}" -> "${cleaned}"`);
   return cleaned;
 }
 
@@ -68,14 +65,12 @@ export const translateText = action({
   handler: async (ctx, args) => {
     if (args.useGpt) {
       try {
-        const systemPrompt = `You are a professional translator. Translate the following text from ${LANGUAGES[args.sourceLanguage]} to ${LANGUAGES[args.targetLanguage]}. ${
-          args.context
+        const systemPrompt = `You are a professional translator. Translate the following text from ${LANGUAGES[args.sourceLanguage]} to ${LANGUAGES[args.targetLanguage]}. ${args.context
             ? `Consider this previous context for better translation: "${args.context}"\n\nNow translate the following text, maintaining consistency with the context:`
             : 'Maintain the original meaning and nuance, but make it sound natural in the target language.'
-        } Return only the translated text with no explanations or additional content.`;
-        
+          } Return only the translated text with no explanations or additional content.`;
+
         const translation = await callOpenRouter('openai/gpt-4.1-nano', systemPrompt, args.text);
-        console.log('[GPT-4.1-Nano] Translation result:', { original: args.text, translation });
         return translation;
       } catch (error) {
         console.error('GPT translation error:', error);
@@ -83,7 +78,7 @@ export const translateText = action({
         return translateWithGemini(args.text, args.sourceLanguage, args.targetLanguage);
       }
     }
- 
+
     return translateWithGemini(args.text, args.sourceLanguage, args.targetLanguage);
   },
 });
@@ -91,21 +86,19 @@ export const translateText = action({
 // Helper function to translate using Gemini 2.5 Flash Lite via OpenRouter
 async function translateWithGemini(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
   try {
-    console.log(`[Gemini] Starting translation: ${sourceLanguage} -> ${targetLanguage}`);
-    
+
     const systemPrompt = `You are a professional translator. Translate the following text from ${LANGUAGES[sourceLanguage]} to ${LANGUAGES[targetLanguage]}. 
 IMPORTANT: You MUST translate the text completely. Do not return the original text.
 Maintain the original meaning and nuance, but make it sound natural in the target language.
 Return ONLY the translated text with no explanations or additional content.`;
 
     const translation = await callOpenRouter('google/gemini-2.5-flash-lite', systemPrompt, text);
-    
+
     // Check if translation is same as input (model failed to translate)
     if (translation.trim().toLowerCase() === text.trim().toLowerCase()) {
       console.warn('[Gemini] Warning: Translation appears identical to input, model may have failed');
     }
-    
-    console.log('[Gemini 2.5 Flash Lite] Translation result:', { original: text, translation });
+
     return translation;
   } catch (error) {
     console.error('[Gemini] Translation error:', error instanceof Error ? error.message : error);

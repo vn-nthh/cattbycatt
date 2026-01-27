@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from "react"
 
+interface Sentence {
+  text: string
+  priority?: boolean
+}
+
 interface TypewriterCarouselProps {
   scrambleSpeed?: number
   pauseDuration?: number
+  priorityPauseDuration?: number
   scrambleIterations?: number
 }
 
@@ -15,11 +21,13 @@ function getRandomChar() {
 export function TypewriterCarousel({
   scrambleSpeed = 30,
   pauseDuration = 3000,
+  priorityPauseDuration = 6000,
   scrambleIterations = 8,
 }: TypewriterCarouselProps) {
-  const [sentences, setSentences] = useState<string[]>([])
+  const [sentences, setSentences] = useState<Sentence[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [displayText, setDisplayText] = useState("")
+  const [isPriority, setIsPriority] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const iterationCountRef = useRef<number[]>([])
 
@@ -27,17 +35,22 @@ export function TypewriterCarousel({
   useEffect(() => {
     fetch("/sentences/sentences.json")
       .then((res) => res.json())
-      .then((data: string[]) => {
+      .then((data: (string | Sentence)[]) => {
         if (Array.isArray(data) && data.length > 0) {
-          setSentences(data)
-          setDisplayText(data[0])
+          // Normalize to Sentence objects for backwards compatibility
+          const normalized: Sentence[] = data.map((item) =>
+            typeof item === "string" ? { text: item } : item
+          )
+          setSentences(normalized)
+          setDisplayText(normalized[0].text)
+          setIsPriority(normalized[0].priority || false)
         }
       })
       .catch((err) => {
         console.error("Failed to load sentences:", err)
-        const fallback = ["REAL-TIME CAPTIONING AND TRANSLATING TOOL"]
+        const fallback: Sentence[] = [{ text: "REAL-TIME CAPTIONING AND TRANSLATING TOOL" }]
         setSentences(fallback)
-        setDisplayText(fallback[0])
+        setDisplayText(fallback[0].text)
       })
   }, [])
 
@@ -45,27 +58,31 @@ export function TypewriterCarousel({
   useEffect(() => {
     if (sentences.length <= 1 || isTransitioning) return
 
+    // Use longer pause for priority sentences
+    const currentPause = isPriority ? priorityPauseDuration : pauseDuration
+
     const timer = setTimeout(() => {
       setIsTransitioning(true)
       const nextIndex = (currentIndex + 1) % sentences.length
-      const targetText = sentences[nextIndex]
-      const currentText = sentences[currentIndex] || ""
-      
+      const targetSentence = sentences[nextIndex]
+      const currentText = sentences[currentIndex]?.text || ""
+
       // Initialize iteration counts for each character position
-      const maxLength = Math.max(currentText.length, targetText.length)
+      const maxLength = Math.max(currentText.length, targetSentence.text.length)
       iterationCountRef.current = new Array(maxLength).fill(0)
-      
+
       setCurrentIndex(nextIndex)
-    }, pauseDuration)
+      setIsPriority(targetSentence.priority || false)
+    }, currentPause)
 
     return () => clearTimeout(timer)
-  }, [sentences, currentIndex, isTransitioning, pauseDuration])
+  }, [sentences, currentIndex, isTransitioning, pauseDuration, priorityPauseDuration, isPriority])
 
   // Scramble animation effect
   useEffect(() => {
     if (!isTransitioning || sentences.length === 0) return
 
-    const targetText = sentences[currentIndex]
+    const targetText = sentences[currentIndex].text
     const maxLength = Math.max(displayText.length, targetText.length)
 
     const timer = setInterval(() => {
@@ -111,7 +128,7 @@ export function TypewriterCarousel({
 
   return (
     <div className="typewriter-container">
-      <span className="typewriter-text">
+      <span className={`typewriter-text ${isPriority && !isTransitioning ? 'typewriter-priority' : ''}`}>
         {displayText}
       </span>
     </div>
