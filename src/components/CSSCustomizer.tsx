@@ -106,7 +106,7 @@ const PRESETS: Record<Exclude<PresetType, 'custom'>, CustomizationSettings> = {
   cozy: {
     transcriptFont: "'Zilla Slab', serif",
     japaneseFont: "'Kosugi Maru', sans-serif",
-    koreanFont: "'Nanum Gothic', sans-serif",
+    koreanFont: "'Sunflower', sans-serif",
     textColor: '#e8e8e8',
     glowEnabled: true,
     glowColor: '#8b7355',
@@ -134,10 +134,10 @@ const PRESETS: Record<Exclude<PresetType, 'custom'>, CustomizationSettings> = {
     koreanFont: "'Jua', sans-serif",
     textColor: '#fff5f8',
     glowEnabled: false,
-    glowColor: '#ff6b9d',
+    glowColor: '#e97cb6',
     glowIntensity: 75,
     borderEnabled: true,
-    borderColor: '#ff1493',
+    borderColor: '#e97cb6',
     borderWidth: 10,
     animationType: 'scaleIn',
     animationSpeed: 0.3,
@@ -1345,6 +1345,15 @@ const CSSCustomizer: React.FC = () => {
     const { transcriptMargin, translationMargin } = generateSpacingValues();
     const intensity = (settings.glowIntensity / 100) * 1.25; // Scale so 100% = old 125%
 
+    // Check how many translation languages are actually visible
+    const visibleTranslationsCount = [
+      settings.showEnglish && sourceLanguage !== 'en',
+      settings.showJapanese && sourceLanguage !== 'ja',
+      settings.showKorean && sourceLanguage !== 'ko'
+    ].filter(Boolean).length;
+
+    const shouldApplyStagger = settings.staggerEnabled && visibleTranslationsCount > 1;
+
     const textShadows = [];
     if (settings.glowEnabled && settings.glowIntensity > 0) {
       textShadows.push(`0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}`);
@@ -1452,14 +1461,14 @@ const CSSCustomizer: React.FC = () => {
   font-family: ${settings.transcriptFont} !important;
 }
 
-${settings.staggerEnabled ? `
-.translation-line:nth-child(3) {
+${shouldApplyStagger ? `
+.translation-line-2 {
   animation-delay: ${settings.staggerTime}s !important;
 }
-.translation-line:nth-child(4) {
+.translation-line-3 {
   animation-delay: ${settings.staggerTime * 2}s !important;
 }
-.translation-line:nth-child(5) {
+.translation-line-4 {
   animation-delay: ${settings.staggerTime * 3}s !important;
 }
 ` : ''}
@@ -1611,7 +1620,7 @@ ${!settings.showKorean ? `
                 <button
                   onClick={() => handlePresetChange('whimsy')}
                   className={`p-4 rounded-lg border-2 transition-all text-left ${selectedPreset === 'whimsy'
-                    ? 'border-[#ff6b9d] bg-[#ff6b9d]/20'
+                    ? 'border-[#e97cb6] bg-[#e97cb6]/20'
                     : 'border-[#efefef]/30 hover:border-[#efefef]/50 bg-[#1e1e1e]'
                     }`}
                 >
@@ -1972,9 +1981,21 @@ ${!settings.showKorean ? `
 
                   {settings.staggerEnabled && (
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        {t.staggerTime}: {settings.staggerTime}s
-                      </label>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="block text-sm font-medium">
+                          {t.staggerTime}: {settings.staggerTime}s
+                        </label>
+                        {/* Show small warning if stagger won't be applied */}
+                        {[
+                          settings.showEnglish && sourceLanguage !== 'en',
+                          settings.showJapanese && sourceLanguage !== 'ja',
+                          settings.showKorean && sourceLanguage !== 'ko'
+                        ].filter(Boolean).length <= 1 && (
+                            <span className="text-[10px] text-[#efefef]/40 italic">
+                              (Requires 2+ active languages)
+                            </span>
+                          )}
+                      </div>
                       <input
                         type="range"
                         min="0"
@@ -2136,7 +2157,7 @@ ${!settings.showKorean ? `
                     return (
                       <div
                         key={`${translation.code}-${animationTrigger}`}
-                        className={`translation-line translation-${translation.code} relative z-10`}
+                        className={`translation-line translation-${translation.code} translation-line-${index + 1} relative z-10`}
                         style={{
                           fontFamily: formatFontFamily(
                             translation.code === 'ja' ? settings.japaneseFont :
