@@ -39,6 +39,12 @@ interface CustomizationSettings {
   // Stagger settings
   staggerEnabled: boolean;
   staggerTime: number;
+
+  // Line visibility
+  showTranscript: boolean;
+  showEnglish: boolean;
+  showJapanese: boolean;
+  showKorean: boolean;
 }
 
 const DEFAULT_SETTINGS: CustomizationSettings = {
@@ -61,10 +67,14 @@ const DEFAULT_SETTINGS: CustomizationSettings = {
   staggerTime: 0.3,
   shadowEnabled: true,
   shadowColor: '#000000',
+  showTranscript: true,
+  showEnglish: true,
+  showJapanese: true,
+  showKorean: true,
 };
 
 // Preset type definition
-type PresetType = 'default' | 'sophisticated' | 'whimsy' | 'custom';
+type PresetType = 'default' | 'cozy' | 'whimsy' | 'custom';
 
 // Preset configurations
 const PRESETS: Record<Exclude<PresetType, 'custom'>, CustomizationSettings> = {
@@ -88,48 +98,60 @@ const PRESETS: Record<Exclude<PresetType, 'custom'>, CustomizationSettings> = {
     staggerTime: 0.3,
     shadowEnabled: true,
     shadowColor: '#000000',
+    showTranscript: true,
+    showEnglish: true,
+    showJapanese: true,
+    showKorean: true,
   },
-  sophisticated: {
-    transcriptFont: "'Playfair Display', serif",
-    japaneseFont: "'Shippori Mincho', serif",
-    koreanFont: "'Nanum Myeongjo', serif",
-    textColor: '#f0e6d3',
+  cozy: {
+    transcriptFont: "'Zilla Slab', serif",
+    japaneseFont: "'Kosugi Maru', sans-serif",
+    koreanFont: "'Nanum Gothic', sans-serif",
+    textColor: '#e8e8e8',
     glowEnabled: true,
     glowColor: '#8b7355',
     glowIntensity: 30,
     borderEnabled: true,
     borderColor: '#2a2015',
-    borderWidth: 1,
+    borderWidth: 5,
     animationType: 'fadeIn',
     animationSpeed: 0.6,
-    spacing: 'loose',
-    transcriptSize: 2.8,
-    translationSize: 2.4,
+    spacing: 'tight',
+    transcriptSize: 3,
+    translationSize: 2.5,
     staggerEnabled: true,
     staggerTime: 0.3,
     shadowEnabled: true,
     shadowColor: '#000000',
+    showTranscript: true,
+    showEnglish: true,
+    showJapanese: true,
+    showKorean: true,
   },
   whimsy: {
     transcriptFont: "'Fredoka One', cursive",
     japaneseFont: "'M PLUS Rounded 1c', sans-serif",
     koreanFont: "'Jua', sans-serif",
     textColor: '#fff5f8',
-    glowEnabled: true,
+    glowEnabled: false,
     glowColor: '#ff6b9d',
     glowIntensity: 75,
     borderEnabled: true,
     borderColor: '#ff1493',
-    borderWidth: 2,
+    borderWidth: 10,
     animationType: 'scaleIn',
     animationSpeed: 0.3,
     spacing: 'normal',
-    transcriptSize: 2.6,
-    translationSize: 2.4,
+    transcriptSize: 2,
+    translationSize: 2.5,
     staggerEnabled: false,
     staggerTime: 0.3,
     shadowEnabled: true,
-    shadowColor: '#000000',
+    shadowColor: '#850080',
+    showTranscript: true,
+    showEnglish: true,
+    showJapanese: true,
+    showKorean: true,
   },
 };
 
@@ -451,11 +473,11 @@ interface Translations {
   // Presets
   stylePresets: string;
   presetDefault: string;
-  presetSophisticated: string;
+  presetCozy: string;
   presetWhimsy: string;
   presetCustom: string;
   presetDefaultDesc: string;
-  presetSophisticatedDesc: string;
+  presetCozyDesc: string;
   presetWhimsyDesc: string;
   presetCustomDesc: string;
 
@@ -632,11 +654,11 @@ const translations: Record<string, Translations> = {
     // Presets
     stylePresets: "Style Presets",
     presetDefault: "Default",
-    presetSophisticated: "Sophisticated",
+    presetCozy: "Cozy",
     presetWhimsy: "Whimsy",
     presetCustom: "Custom",
     presetDefaultDesc: "Clean and simple with a blue glow",
-    presetSophisticatedDesc: "Elegant serif fonts with warm tones",
+    presetCozyDesc: "Warm slab-serif fonts with cozy tones",
     presetWhimsyDesc: "Fun and playful with pink accents",
     presetCustomDesc: "Create your own unique style",
 
@@ -746,11 +768,11 @@ const translations: Record<string, Translations> = {
     // Presets
     stylePresets: "スタイルプリセット",
     presetDefault: "デフォルト",
-    presetSophisticated: "洗練",
+    presetCozy: "やすらぎ",
     presetWhimsy: "遊び心",
     presetCustom: "カスタム",
     presetDefaultDesc: "青いグローでシンプル",
-    presetSophisticatedDesc: "暖色系のエレガントなセリフ体",
+    presetCozyDesc: "暖かみのあるスラブセリフ体",
     presetWhimsyDesc: "ピンクのアクセントで楽しく遊び心のある",
     presetCustomDesc: "独自のスタイルを作成",
 
@@ -860,11 +882,11 @@ const translations: Record<string, Translations> = {
     // Presets
     stylePresets: "스타일 프리셋",
     presetDefault: "기본",
-    presetSophisticated: "세련된",
+    presetCozy: "아늑한",
     presetWhimsy: "재미있는",
     presetCustom: "사용자 지정",
     presetDefaultDesc: "파란색 글로우로 깔끔하고 심플하게",
-    presetSophisticatedDesc: "따뜻한 색조의 우아한 세리프 글꼴",
+    presetCozyDesc: "따뜻한 느낌의 슬랩 세리프 글꼴",
     presetWhimsyDesc: "핑크 악센트로 재미있고 장난스럽게",
     presetCustomDesc: "나만의 스타일 만들기",
 
@@ -917,6 +939,10 @@ const CSSCustomizer: React.FC = () => {
     // Detect language from localStorage or default to English
     return localStorage.getItem('language') || 'en';
   });
+  // Preview background image
+  const [previewBackground, setPreviewBackground] = useState<string>('');
+  // Preview background dimmer (0 = no dim, 1 = fully dark)
+  const [previewDimmer, setPreviewDimmer] = useState<number>(0);
 
   // Get source language from URL params or localStorage
   const [sourceLanguage, setSourceLanguage] = useState(() => {
@@ -1476,7 +1502,35 @@ ${generateAnimationKeyframes()}
 
 .export-view .translation-line {
   overflow: visible !important;
-}`;
+}
+
+${!settings.showTranscript ? `
+/* Hide transcript line */
+.transcript-line {
+  display: none !important;
+}
+` : ''}
+
+${!settings.showEnglish ? `
+/* Hide English translation */
+.translation-en {
+  display: none !important;
+}
+` : ''}
+
+${!settings.showJapanese ? `
+/* Hide Japanese translation */
+.translation-ja {
+  display: none !important;
+}
+` : ''}
+
+${!settings.showKorean ? `
+/* Hide Korean translation */
+.translation-ko {
+  display: none !important;
+}
+` : ''}`;
   };
 
   const copyToClipboard = async () => {
@@ -1541,16 +1595,16 @@ ${generateAnimationKeyframes()}
                   <div className="text-sm text-[#efefef]/60 mt-1">{t.presetDefaultDesc}</div>
                 </button>
 
-                {/* Sophisticated Preset */}
+                {/* Cozy Preset */}
                 <button
-                  onClick={() => handlePresetChange('sophisticated')}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${selectedPreset === 'sophisticated'
+                  onClick={() => handlePresetChange('cozy')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${selectedPreset === 'cozy'
                     ? 'border-[#8b7355] bg-[#8b7355]/20'
                     : 'border-[#efefef]/30 hover:border-[#efefef]/50 bg-[#1e1e1e]'
                     }`}
                 >
-                  <div className="font-semibold text-[#f0e6d3]">{t.presetSophisticated}</div>
-                  <div className="text-sm text-[#efefef]/60 mt-1">{t.presetSophisticatedDesc}</div>
+                  <div className="font-semibold text-[#e8e8e8]">{t.presetCozy}</div>
+                  <div className="text-sm text-[#efefef]/60 mt-1">{t.presetCozyDesc}</div>
                 </button>
 
                 {/* Whimsy Preset */}
@@ -1585,45 +1639,74 @@ ${generateAnimationKeyframes()}
               </h2>
 
               <div className="space-y-4">
-                <div>
-                  <FontSelector
-                    fonts={sourceLanguage === 'ja' ? JAPANESE_FONTS : sourceLanguage === 'ko' ? KOREAN_FONTS : FONT_OPTIONS}
-                    value={sourceLanguage === 'ja' ? settings.japaneseFont : sourceLanguage === 'ko' ? settings.koreanFont : settings.transcriptFont}
-                    onChange={(value) => {
-                      if (sourceLanguage === 'ja') {
-                        updateSetting('japaneseFont', value);
-                      } else if (sourceLanguage === 'ko') {
-                        updateSetting('koreanFont', value);
-                      } else {
-                        updateSetting('transcriptFont', value);
-                      }
-                    }}
-                    label={getLanguageConfig().sourceFontLabel}
-                    onFontLoad={loadFont}
-                    translations={t}
-                  />
-                </div>
-
-                {getLanguageConfig().translationFontLabels.map((fontConfig, index) => (
-                  <div key={fontConfig.code}>
+                {/* Transcript Font with Toggle */}
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
                     <FontSelector
-                      fonts={fontConfig.code === 'ja' ? JAPANESE_FONTS : fontConfig.code === 'ko' ? KOREAN_FONTS : FONT_OPTIONS}
-                      value={fontConfig.code === 'ja' ? settings.japaneseFont : fontConfig.code === 'ko' ? settings.koreanFont : settings.transcriptFont}
+                      fonts={sourceLanguage === 'ja' ? JAPANESE_FONTS : sourceLanguage === 'ko' ? KOREAN_FONTS : FONT_OPTIONS}
+                      value={sourceLanguage === 'ja' ? settings.japaneseFont : sourceLanguage === 'ko' ? settings.koreanFont : settings.transcriptFont}
                       onChange={(value) => {
-                        if (fontConfig.code === 'ja') {
+                        if (sourceLanguage === 'ja') {
                           updateSetting('japaneseFont', value);
-                        } else if (fontConfig.code === 'ko') {
+                        } else if (sourceLanguage === 'ko') {
                           updateSetting('koreanFont', value);
                         } else {
                           updateSetting('transcriptFont', value);
                         }
                       }}
-                      label={fontConfig.label}
+                      label={getLanguageConfig().sourceFontLabel}
                       onFontLoad={loadFont}
                       translations={t}
                     />
                   </div>
-                ))}
+                  <div className="pt-7">
+                    <button
+                      onClick={() => updateSetting('showTranscript', !settings.showTranscript)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${settings.showTranscript ? 'bg-[#2196F3]' : 'bg-[#606060]'}`}
+                      title={settings.showTranscript ? 'Visible' : 'Hidden'}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-[#efefef] transition-transform ${settings.showTranscript ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Translation Font Selectors with Toggles */}
+                {getLanguageConfig().translationFontLabels.map((fontConfig, index) => {
+                  const showSetting: 'showEnglish' | 'showJapanese' | 'showKorean' = fontConfig.code === 'en' ? 'showEnglish' : fontConfig.code === 'ja' ? 'showJapanese' : 'showKorean';
+                  const isVisible = fontConfig.code === 'en' ? settings.showEnglish : fontConfig.code === 'ja' ? settings.showJapanese : settings.showKorean;
+
+                  return (
+                    <div key={fontConfig.code} className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <FontSelector
+                          fonts={fontConfig.code === 'ja' ? JAPANESE_FONTS : fontConfig.code === 'ko' ? KOREAN_FONTS : FONT_OPTIONS}
+                          value={fontConfig.code === 'ja' ? settings.japaneseFont : fontConfig.code === 'ko' ? settings.koreanFont : settings.transcriptFont}
+                          onChange={(value) => {
+                            if (fontConfig.code === 'ja') {
+                              updateSetting('japaneseFont', value);
+                            } else if (fontConfig.code === 'ko') {
+                              updateSetting('koreanFont', value);
+                            } else {
+                              updateSetting('transcriptFont', value);
+                            }
+                          }}
+                          label={fontConfig.label}
+                          onFontLoad={loadFont}
+                          translations={t}
+                        />
+                      </div>
+                      <div className="pt-7">
+                        <button
+                          onClick={() => updateSetting(showSetting, !isVisible)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isVisible ? 'bg-[#2196F3]' : 'bg-[#606060]'}`}
+                          title={isVisible ? 'Visible' : 'Hidden'}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-[#efefef] transition-transform ${isVisible ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -1934,96 +2017,163 @@ ${generateAnimationKeyframes()}
                 </div>
               )}
 
-              <div className="bg-black rounded-lg p-8 min-h-[400px] flex flex-col justify-center space-y-4" style={{ overflow: 'visible' }}>
-                <div
-                  key={`transcript-${animationTrigger}`}
-                  className="transcript-line"
-                  style={{
-                    fontFamily: formatFontFamily(
-                      sourceLanguage === 'ja' ? settings.japaneseFont :
-                        sourceLanguage === 'ko' ? settings.koreanFont :
-                          settings.transcriptFont
-                    ),
-                    fontSize: `${settings.transcriptSize}rem`,
-                    fontWeight: 600,
-                    color: settings.textColor,
-                    textAlign: 'center',
-                    margin: `0 0 ${generateSpacingValues().transcriptMargin} 0`,
-                    lineHeight: 1.3,
-                    paddingBottom: '0.2rem',
-                    WebkitTextStroke: settings.borderEnabled ? `${settings.borderWidth}px ${settings.borderColor}` : '0',
-                    paintOrder: 'stroke fill',
-                    textShadow: (() => {
-                      const echoes = [];
-                      const intensity = (settings.glowIntensity / 100) * 1.25;
-                      if (settings.glowEnabled && settings.glowIntensity > 0) {
-                        echoes.push(`0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}`);
-                        echoes.push(`0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}`);
-                        echoes.push(`0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))}`);
+              {/* Background Image Selector */}
+              <div className="mb-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-[#efefef]/70">Background:</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const url = URL.createObjectURL(file);
+                        setPreviewBackground(url);
                       }
-                      if (settings.shadowEnabled) {
-                        echoes.push(`2px 2px 4px ${hexToRgba(settings.shadowColor || '#000000', 0.8)}`);
-                      }
-                      return echoes.length > 0 ? echoes.join(', ') : 'none';
-                    })(),
-                    overflowX: 'hidden',
-                    overflowY: 'visible',
-                    position: 'relative',
-                  }}
-                >
-                  {getPreviewSamples().source}
+                    }}
+                    className="text-xs text-[#efefef]/70 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-[#606060] file:text-[#efefef] hover:file:bg-[#707070] file:cursor-pointer"
+                  />
+                  <button
+                    onClick={() => setPreviewBackground('')}
+                    className="text-xs px-2 py-1 bg-[#606060] hover:bg-[#707070] rounded text-[#efefef]/70"
+                  >
+                    Clear
+                  </button>
                 </div>
 
-                {getPreviewSamples().translations.map((translation, index) => {
-                  const transitionStyles = getTransitionStyles(
-                    animationState === 'visible',
-                    settings.animationType,
-                    settings.animationSpeed,
-                    index
-                  );
+                {/* Dimmer Slider */}
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-[#efefef]/70 w-20">Dimmer:</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={previewDimmer * 100}
+                    onChange={(e) => setPreviewDimmer(parseInt(e.target.value) / 100)}
+                    className="flex-1"
+                    style={{ accentColor: '#2196F3' }}
+                  />
+                  <span className="text-xs text-[#efefef]/50 w-10">{Math.round(previewDimmer * 100)}%</span>
+                </div>
+              </div>
+
+              <div
+                className="rounded-lg p-8 min-h-[400px] flex flex-col justify-center space-y-4 relative"
+                style={{
+                  overflow: 'visible',
+                  backgroundColor: '#000',
+                  backgroundImage: previewBackground ? `url(${previewBackground})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              >
+                {/* Dimmer Overlay */}
+                {previewDimmer > 0 && (
+                  <div
+                    className="absolute inset-0 rounded-lg pointer-events-none"
+                    style={{ backgroundColor: `rgba(0, 0, 0, ${previewDimmer})` }}
+                  />
+                )}
+
+                {/* Transcript Line */}
+                {settings.showTranscript && (
+                  <div
+                    key={`transcript-${animationTrigger}`}
+                    className="transcript-line relative z-10"
+                    style={{
+                      fontFamily: formatFontFamily(
+                        sourceLanguage === 'ja' ? settings.japaneseFont :
+                          sourceLanguage === 'ko' ? settings.koreanFont :
+                            settings.transcriptFont
+                      ),
+                      fontSize: `${settings.transcriptSize}rem`,
+                      fontWeight: 600,
+                      color: settings.textColor,
+                      textAlign: 'center',
+                      margin: `0 0 ${generateSpacingValues().transcriptMargin} 0`,
+                      lineHeight: 1.3,
+                      paddingBottom: '0.2rem',
+                      WebkitTextStroke: settings.borderEnabled ? `${settings.borderWidth}px ${settings.borderColor}` : '0',
+                      paintOrder: 'stroke fill',
+                      textShadow: (() => {
+                        const echoes = [];
+                        const intensity = (settings.glowIntensity / 100) * 1.25;
+                        if (settings.glowEnabled && settings.glowIntensity > 0) {
+                          echoes.push(`0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}`);
+                          echoes.push(`0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}`);
+                          echoes.push(`0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))}`);
+                        }
+                        if (settings.shadowEnabled) {
+                          echoes.push(`2px 2px 4px ${hexToRgba(settings.shadowColor || '#000000', 0.8)}`);
+                        }
+                        return echoes.length > 0 ? echoes.join(', ') : 'none';
+                      })(),
+                      overflowX: 'hidden',
+                      overflowY: 'visible',
+                      position: 'relative',
+                    }}
+                  >
+                    {getPreviewSamples().source}
+                  </div>
+                )}
+
+                {getPreviewSamples().translations
+                  .filter((translation) => {
+                    if (translation.code === 'en') return settings.showEnglish;
+                    if (translation.code === 'ja') return settings.showJapanese;
+                    if (translation.code === 'ko') return settings.showKorean;
+                    return true;
+                  })
+                  .map((translation, index) => {
+                    const transitionStyles = getTransitionStyles(
+                      animationState === 'visible',
+                      settings.animationType,
+                      settings.animationSpeed,
+                      index
+                    );
 
 
-                  return (
-                    <div
-                      key={`${translation.code}-${animationTrigger}`}
-                      className={`translation-line translation-${translation.code}`}
-                      style={{
-                        fontFamily: formatFontFamily(
-                          translation.code === 'ja' ? settings.japaneseFont :
-                            translation.code === 'ko' ? settings.koreanFont :
-                              settings.transcriptFont
-                        ),
-                        fontSize: `${settings.translationSize}rem`,
-                        fontWeight: 500,
-                        color: settings.textColor,
-                        textAlign: 'center',
-                        margin: generateSpacingValues().translationMargin,
-                        lineHeight: 1.3,
-                        WebkitTextStroke: settings.borderEnabled ? `${settings.borderWidth}px ${settings.borderColor}` : '0',
-                        paintOrder: 'stroke fill',
-                        textShadow: (() => {
-                          const echoes = [];
-                          const intensity = (settings.glowIntensity / 100) * 1.25;
-                          if (settings.glowEnabled && settings.glowIntensity > 0) {
-                            echoes.push(`0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}`);
-                            echoes.push(`0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}`);
-                            echoes.push(`0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))}`);
-                          }
-                          if (settings.shadowEnabled) {
-                            echoes.push(`2px 2px 4px ${hexToRgba(settings.shadowColor || '#000000', 0.8)}`);
-                          }
-                          return echoes.length > 0 ? echoes.join(', ') : 'none';
-                        })(),
-                        overflow: 'visible',
-                        position: 'relative',
-                        // Apply transition-based animation styles
-                        ...transitionStyles,
-                      }}
-                    >
-                      {translation.text}
-                    </div>
-                  );
-                })}
+                    return (
+                      <div
+                        key={`${translation.code}-${animationTrigger}`}
+                        className={`translation-line translation-${translation.code} relative z-10`}
+                        style={{
+                          fontFamily: formatFontFamily(
+                            translation.code === 'ja' ? settings.japaneseFont :
+                              translation.code === 'ko' ? settings.koreanFont :
+                                settings.transcriptFont
+                          ),
+                          fontSize: `${settings.translationSize}rem`,
+                          fontWeight: 500,
+                          color: settings.textColor,
+                          textAlign: 'center',
+                          margin: generateSpacingValues().translationMargin,
+                          lineHeight: 1.3,
+                          WebkitTextStroke: settings.borderEnabled ? `${settings.borderWidth}px ${settings.borderColor}` : '0',
+                          paintOrder: 'stroke fill',
+                          textShadow: (() => {
+                            const echoes = [];
+                            const intensity = (settings.glowIntensity / 100) * 1.25;
+                            if (settings.glowEnabled && settings.glowIntensity > 0) {
+                              echoes.push(`0 0 ${Math.min(10 * intensity, 32)}px ${hexToRgba(settings.glowColor, Math.min(0.8 * intensity, 1))}`);
+                              echoes.push(`0 0 ${Math.min(20 * intensity, 50)}px ${hexToRgba(settings.glowColor, Math.min(0.6 * intensity, 1))}`);
+                              echoes.push(`0 0 ${Math.min(28 * intensity, 65)}px ${hexToRgba(settings.glowColor, Math.min(0.4 * intensity, 1))}`);
+                            }
+                            if (settings.shadowEnabled) {
+                              echoes.push(`2px 2px 4px ${hexToRgba(settings.shadowColor || '#000000', 0.8)}`);
+                            }
+                            return echoes.length > 0 ? echoes.join(', ') : 'none';
+                          })(),
+                          overflow: 'visible',
+                          position: 'relative',
+                          // Apply transition-based animation styles
+                          ...transitionStyles,
+                        }}
+                      >
+                        {translation.text}
+                      </div>
+                    );
+                  })}
               </div>
             </div>
 

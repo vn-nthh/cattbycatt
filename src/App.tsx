@@ -303,7 +303,7 @@ function Content() {
   const deepgramWsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const accumulatedTranscriptRef = useRef<string>("");
-  const deepgramSilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // const deepgramSilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const getDeepgramApiKey = useAction(api.deepgramTranscription.getDeepgramApiKey);
 
   // Initialize silent audio
@@ -469,7 +469,8 @@ function Content() {
         language: sourceLanguage,
         smart_format: 'true',
         interim_results: 'true',
-        endpointing: '1500',
+        endpointing: '500',
+        utterance_end_ms: '1000',
       });
 
       const ws = new WebSocket(
@@ -484,40 +485,35 @@ function Content() {
 
       ws.onmessage = async (event) => {
         const data = JSON.parse(event.data);
-        const transcriptText = data.channel?.alternatives?.[0]?.transcript;
-        const isFinal = data.is_final;
 
-        if (transcriptText) {
-          // Clear any existing silence timer
-          if (deepgramSilenceTimerRef.current) {
-            clearTimeout(deepgramSilenceTimerRef.current);
+        if (data.type === 'Results') {
+          const transcriptText = data.channel?.alternatives?.[0]?.transcript;
+          const isFinal = data.is_final;
+
+          if (transcriptText) {
+            if (isFinal) {
+              // Add to accumulated transcript
+              accumulatedTranscriptRef.current = (accumulatedTranscriptRef.current + ' ' + transcriptText).trim();
+            }
+
+            // Show full accumulated text + current interim
+            const displayText = (accumulatedTranscriptRef.current + ' ' + (isFinal ? '' : transcriptText)).trim();
+            setTranscript(displayText);
+            currentTranscriptRef.current = displayText;
           }
+        } else if (data.type === 'UtteranceEnd') {
+          // Deepgram detected end of utterance. This is our trigger to translate.
+          const finalUtterance = accumulatedTranscriptRef.current.trim();
 
-          let displayText = "";
-          const prevAccumulated = accumulatedTranscriptRef.current;
-
-          if (isFinal) {
-            // Add to accumulated transcript
-            accumulatedTranscriptRef.current = (prevAccumulated + " " + transcriptText).trim();
-            displayText = accumulatedTranscriptRef.current;
-          } else {
-            // Show accumulated + current interim
-            displayText = (prevAccumulated + " " + transcriptText).trim();
-          }
-
-          setTranscript(displayText);
-          currentTranscriptRef.current = displayText;
-
-          // Only translate if it's a final result (from Deepgram's perspective)
-          if (isFinal && transcriptText.trim()) {
+          if (finalUtterance) {
+            console.log('[DEEPGRAM] UtteranceEnd received, translating:', finalUtterance);
             const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
 
             try {
-              // Translate the FULL accumulated text for context (currently just transcriptText)
               const translationsResult = await Promise.all(
                 targetLanguages.map(targetLang =>
                   translateText({
-                    text: displayText,
+                    text: finalUtterance,
                     sourceLanguage,
                     targetLanguage: targetLang,
                     useGpt,
@@ -534,15 +530,13 @@ function Content() {
               );
 
               setTranslations(newTranslations);
-            } catch {
-              // Translation failed silently
+            } catch (err) {
+              console.error('[DEEPGRAM] Translation failed:', err);
             }
-          }
 
-          // Restart silence timer to clear accumulated state after 5000ms of no activity
-          deepgramSilenceTimerRef.current = setTimeout(() => {
-            accumulatedTranscriptRef.current = "";
-          }, 5000);
+            // Clear accumulated for next utterance
+            accumulatedTranscriptRef.current = '';
+          }
         }
       };
 
@@ -656,11 +650,6 @@ function Content() {
           mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
           mediaRecorderRef.current = null;
         }
-        if (deepgramSilenceTimerRef.current) {
-          clearTimeout(deepgramSilenceTimerRef.current);
-          deepgramSilenceTimerRef.current = null;
-        }
-        console.log("[DEEPGRAM] CLEANUP - Clearing accumulatedTranscriptRef (was:", accumulatedTranscriptRef.current, ")");
         accumulatedTranscriptRef.current = "";
 
         // Cleanup VAD
@@ -871,10 +860,6 @@ function Content() {
       }
     }
 
-    if (deepgramSilenceTimerRef.current) {
-      clearTimeout(deepgramSilenceTimerRef.current);
-      deepgramSilenceTimerRef.current = null;
-    }
     accumulatedTranscriptRef.current = "";
 
     // Clear speaking state and timeouts
