@@ -45,6 +45,11 @@ interface CustomizationSettings {
   showEnglish: boolean;
   showJapanese: boolean;
   showKorean: boolean;
+
+  // Custom font imports
+  transcriptFontImport?: string;
+  japaneseFontImport?: string;
+  koreanFontImport?: string;
 }
 
 const DEFAULT_SETTINGS: CustomizationSettings = {
@@ -117,7 +122,7 @@ const PRESETS: Record<Exclude<PresetType, 'custom'>, CustomizationSettings> = {
     animationType: 'fadeIn',
     animationSpeed: 0.6,
     spacing: 'tight',
-    transcriptSize: 3,
+    transcriptSize: 2.5,
     translationSize: 2.5,
     staggerEnabled: true,
     staggerTime: 0.3,
@@ -154,6 +159,12 @@ const PRESETS: Record<Exclude<PresetType, 'custom'>, CustomizationSettings> = {
     showKorean: true,
   },
 };
+
+// Interface for custom font modal/popover
+interface CustomFontData {
+  name: string;
+  importUrl: string;
+}
 
 const FONT_OPTIONS = [
   // System Fonts
@@ -316,17 +327,22 @@ const ANIMATION_OPTIONS = [
 // Custom Font Selector Component
 interface FontSelectorProps {
   fonts: Array<{ value: string; label: string; category: string }>;
+  additionalFonts?: Array<{ value: string; label: string; category: string; importUrl?: string }>;
   value: string;
   onChange: (value: string) => void;
+  onRemoveFont?: (fontValue: string) => void;
   label: string;
   onFontLoad?: (fontFamily: string) => void;
   translations: Translations;
 }
 
-const FontSelector: React.FC<FontSelectorProps> = ({ fonts, value, onChange, label, onFontLoad, translations: t }) => {
+const FontSelector: React.FC<FontSelectorProps> = ({ fonts, additionalFonts = [], value, onChange, onRemoveFont, label, onFontLoad, translations: t }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Merge static fonts with additional custom fonts
+  const allFonts = [...fonts, ...additionalFonts];
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -340,12 +356,20 @@ const FontSelector: React.FC<FontSelectorProps> = ({ fonts, value, onChange, lab
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Get current font label
-  const currentFont = fonts.find(font => font.value === value);
-  const currentFontLabel = currentFont?.label || t.selectFont;
+  // Get current font label - handle custom fonts not in list
+  const currentFont = allFonts.find(font => font.value === value);
+  let currentFontLabel = currentFont?.label || t.selectFont;
+
+  // If font not in list, try to extract name from value (for custom fonts)
+  if (!currentFont && value) {
+    const extracted = extractFontName(value);
+    if (extracted) {
+      currentFontLabel = `${extracted} (Custom)`;
+    }
+  }
 
   // Filter fonts based on search
-  const filteredFonts = fonts.filter(font =>
+  const filteredFonts = allFonts.filter(font =>
     font.label.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -413,17 +437,35 @@ const FontSelector: React.FC<FontSelectorProps> = ({ fonts, value, onChange, lab
                 </div>
 
                 {/* Fonts in category */}
-                {categoryFonts.map((font) => (
-                  <button
-                    key={font.value}
-                    onClick={() => handleFontSelect(font.value)}
-                    className={`w-full px-3 py-2 text-left hover:bg-[#505050] transition-colors ${font.value === value ? 'bg-[#606060] text-[#efefef]' : 'text-[#efefef]/80'
-                      }`}
-                    style={{ fontFamily: font.value }}
-                  >
-                    {font.label}
-                  </button>
-                ))}
+                {categoryFonts.map((font) => {
+                  const isCustomFont = font.category === 'Custom';
+                  return (
+                    <div
+                      key={font.value}
+                      className={`flex items-center hover:bg-[#505050] transition-colors ${font.value === value ? 'bg-[#606060]' : ''}`}
+                    >
+                      <button
+                        onClick={() => handleFontSelect(font.value)}
+                        className={`flex-1 px-3 py-2 text-left ${font.value === value ? 'text-[#efefef]' : 'text-[#efefef]/80'}`}
+                        style={{ fontFamily: font.value }}
+                      >
+                        {font.label}
+                      </button>
+                      {isCustomFont && onRemoveFont && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveFont(font.value);
+                          }}
+                          className="px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-colors"
+                          title="Remove font"
+                        >
+                          −
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ))}
 
@@ -461,6 +503,18 @@ const translateCategory = (category: string, t: Translations): string => {
     case 'Fallback': return t.fallback;
     default: return category;
   }
+};
+
+// Helper to extract font name from font-family value (e.g., "'Inter', sans-serif" -> "Inter")
+const extractFontName = (fontValue: string): string | null => {
+  if (!fontValue) return null;
+  // Skip system fonts
+  if (fontValue.includes('system-ui') || fontValue.includes('-apple-system')) {
+    return null;
+  }
+  // Extract the font name from quotes
+  const match = fontValue.match(/'([^']+)'/);
+  return match ? match[1] : null;
 };
 
 // Internationalization
@@ -526,6 +580,14 @@ interface Translations {
   slideDown: string;
   scaleIn: string;
   noAnimation: string;
+
+  // Custom Font
+  customFont: string;
+  fontNameLabel: string;
+  importUrlLabel: string;
+  save: string;
+  cancel: string;
+  customFontInstructions: string;
 
   // Actions
   exportCSS: string;
@@ -630,6 +692,14 @@ const translations: Record<string, Translations> = {
     slideDown: "Slide Down",
     scaleIn: "Scale In",
     noAnimation: "No Animation",
+
+    // Custom Font
+    customFont: "Custom Font",
+    fontNameLabel: "Font Name (e.g., 'My Custom Font')",
+    importUrlLabel: "Import URL (Google Fonts link or @import)",
+    save: "Save",
+    cancel: "Cancel",
+    customFontInstructions: "Enter the font family name and the CSS import URL. For Google Fonts, use the @import link.",
 
     // Actions
     exportCSS: "📋 Export CSS",
@@ -745,6 +815,14 @@ const translations: Record<string, Translations> = {
     scaleIn: "スケールイン",
     noAnimation: "アニメーションなし",
 
+    // Custom Font
+    customFont: "カスタムフォント",
+    fontNameLabel: "フォント名 (例: 'My Custom Font')",
+    importUrlLabel: "インポートURL (Google Fontsリンクまたは@import)",
+    save: "保存",
+    cancel: "キャンセル",
+    customFontInstructions: "フォント名とCSSのインポートURLを入力してください。Google Fontsの場合は@importリンクを使用してください。",
+
     // Actions
     exportCSS: "📋 CSSをエクスポート",
     copiedToClipboard: "✅ クリップボードにコピーしました！",
@@ -859,6 +937,14 @@ const translations: Record<string, Translations> = {
     scaleIn: "스케일 인",
     noAnimation: "애니메이션 없음",
 
+    // Custom Font
+    customFont: "사용자 정의 글꼴",
+    fontNameLabel: "글꼴 이름 (예: 'My Custom Font')",
+    importUrlLabel: "가져오기 URL (Google 글꼴 링크 또는 @import)",
+    save: "저장",
+    cancel: "취소",
+    customFontInstructions: "글꼴 이름과 CSS 가져오기 URL을 입력하세요. Google 글꼴의 경우 @import 링크를 사용하세요.",
+
     // Actions
     exportCSS: "📋 CSS 내보내기",
     copiedToClipboard: "✅ 클립보드에 복사됨!",
@@ -943,6 +1029,80 @@ const CSSCustomizer: React.FC = () => {
   const [previewBackground, setPreviewBackground] = useState<string>('');
   // Preview background dimmer (0 = no dim, 1 = fully dark)
   const [previewDimmer, setPreviewDimmer] = useState<number>(0);
+
+  // Custom font editing state
+  const [editingCustomFontType, setEditingCustomFontType] = useState<'transcript' | 'japanese' | 'korean' | null>(null);
+  const [customFontInput, setCustomFontInput] = useState<CustomFontData>({ name: '', importUrl: '' });
+
+  // Dynamic list of user-added custom fonts (persisted to localStorage)
+  const [customFonts, setCustomFonts] = useState<Array<{ value: string; label: string; category: string; importUrl: string }>>(() => {
+    try {
+      const saved = localStorage.getItem('customFonts');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Save customFonts to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('customFonts', JSON.stringify(customFonts));
+  }, [customFonts]);
+
+  // Inject custom font imports on mount (for fonts loaded from localStorage)
+  useEffect(() => {
+    customFonts.forEach(font => {
+      if (!font.importUrl) return;
+
+      const fontExtensions = ['.woff2', '.woff', '.ttf', '.otf', '.eot'];
+      const isFontFile = fontExtensions.some(ext => font.importUrl.toLowerCase().includes(ext)) ||
+        font.importUrl.includes('ufs.sh');
+
+      if (isFontFile) {
+        // Direct font file - inject @font-face
+        const fontName = extractFontName(font.value) || 'CustomFont';
+        const format = font.importUrl.toLowerCase().includes('.woff2') ? 'woff2' :
+          font.importUrl.toLowerCase().includes('.woff') ? 'woff' :
+            font.importUrl.toLowerCase().includes('.ttf') ? 'truetype' :
+              font.importUrl.toLowerCase().includes('.otf') ? 'opentype' : 'woff2';
+
+        const styleEl = document.createElement('style');
+        styleEl.setAttribute('data-custom-font', fontName);
+        styleEl.textContent = `
+          @font-face {
+            font-family: '${fontName}';
+            src: url('${font.importUrl}') format('${format}');
+            font-weight: 400 700;
+            font-display: swap;
+          }
+        `;
+        document.head.appendChild(styleEl);
+      } else {
+        // CSS file - use link element
+        let cssUrl = font.importUrl;
+        if (font.importUrl.includes('@import')) {
+          const match = font.importUrl.match(/url\(['"]?([^'"]+)['"]?\)/);
+          if (match) cssUrl = match[1];
+        }
+
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = cssUrl;
+        link.setAttribute('data-custom-font', extractFontName(font.value) || 'custom');
+        document.head.appendChild(link);
+      }
+    });
+
+    // Cleanup on unmount
+    return () => {
+      document.querySelectorAll('[data-custom-font]').forEach(el => el.remove());
+    };
+  }, []); // Only run on mount
+
+  // Function to remove a custom font
+  const removeCustomFont = useCallback((fontValue: string) => {
+    setCustomFonts(prev => prev.filter(f => f.value !== fontValue));
+  }, []);
 
   // Get source language from URL params or localStorage
   const [sourceLanguage, setSourceLanguage] = useState(() => {
@@ -1165,8 +1325,94 @@ const CSSCustomizer: React.FC = () => {
     };
   }, []);
 
+  // Handle saving custom font
+  const updateCustomFont = useCallback((type: 'transcript' | 'japanese' | 'korean', name: string, importUrl: string) => {
+    const fontKey = type === 'japanese' ? 'japaneseFont' : type === 'korean' ? 'koreanFont' : 'transcriptFont';
+    const importKey = type === 'japanese' ? 'japaneseFontImport' : type === 'korean' ? 'koreanFontImport' : 'transcriptFontImport';
+
+    // Update settings
+    setSettings(prev => ({
+      ...prev,
+      [fontKey]: `'${name}', sans-serif`,
+      [importKey]: importUrl
+    }));
+
+    // Add to custom fonts list if not already there
+    const fontValue = `'${name}', sans-serif`;
+    setCustomFonts(prev => {
+      if (prev.some(f => f.value === fontValue)) return prev;
+      return [...prev, {
+        value: fontValue,
+        label: `${name} (Custom)`,
+        category: 'Custom',
+        importUrl
+      }];
+    });
+
+    // Inject into preview for live viewing
+    if (importUrl) {
+      const fontExtensions = ['.woff2', '.woff', '.ttf', '.otf', '.eot'];
+      const isFontFile = fontExtensions.some(ext => importUrl.toLowerCase().includes(ext)) ||
+        importUrl.includes('ufs.sh');
+
+      if (isFontFile) {
+        // Direct font file - inject @font-face via style element
+        const format = importUrl.toLowerCase().includes('.woff2') ? 'woff2' :
+          importUrl.toLowerCase().includes('.woff') ? 'woff' :
+            importUrl.toLowerCase().includes('.ttf') ? 'truetype' :
+              importUrl.toLowerCase().includes('.otf') ? 'opentype' : 'woff2';
+
+        const styleEl = document.createElement('style');
+        styleEl.textContent = `
+          @font-face {
+            font-family: '${name}';
+            src: url('${importUrl}') format('${format}');
+            font-weight: 400 700;
+            font-display: swap;
+          }
+        `;
+        document.head.appendChild(styleEl);
+      } else {
+        // CSS file - use link element
+        let cssUrl = importUrl;
+        if (importUrl.includes('@import')) {
+          const match = importUrl.match(/url\(['"]?([^'"]+)['"]?\)/);
+          if (match) cssUrl = match[1];
+        }
+
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = cssUrl;
+        document.head.appendChild(link);
+      }
+    }
+
+    setEditingCustomFontType(null);
+    setSelectedPreset('custom');
+    setFontLoadTrigger(prev => prev + 1);
+  }, []);
+
   const updateSetting = useCallback((key: keyof CustomizationSettings, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings(prev => {
+      const newSettings = { ...prev, [key]: value };
+
+      // If updating a font, check if it's a custom font and set its import URL
+      if (key === 'transcriptFont' || key === 'japaneseFont' || key === 'koreanFont') {
+        const customFont = customFonts.find(f => f.value === value);
+        if (customFont) {
+          const importKey = key === 'transcriptFont' ? 'transcriptFontImport' :
+            key === 'japaneseFont' ? 'japaneseFontImport' : 'koreanFontImport';
+          newSettings[importKey] = customFont.importUrl;
+        } else {
+          // Clear import if switching to a non-custom font
+          const importKey = key === 'transcriptFont' ? 'transcriptFontImport' :
+            key === 'japaneseFont' ? 'japaneseFontImport' : 'koreanFontImport';
+          newSettings[importKey] = undefined;
+        }
+      }
+
+      return newSettings;
+    });
     // Switch to custom preset when user manually changes settings
     setSelectedPreset('custom');
 
@@ -1176,7 +1422,7 @@ const CSSCustomizer: React.FC = () => {
         setFontLoadTrigger(prev => prev + 1);
       }, 200); // Increased delay to allow font loading
     }
-  }, []);
+  }, [customFonts]);
 
   // Load fonts dynamically when they're selected
   const loadFont = useCallback((fontFamily: string) => {
@@ -1377,27 +1623,72 @@ const CSSCustomizer: React.FC = () => {
         settings.animationType === 'scaleIn' ? 'scaleInGlow' :
           settings.animationType === 'none' ? 'noAnimation' : 'fadeInGlow';
 
-    // Helper to extract font name from font-family value (e.g., "'Inter', sans-serif" -> "Inter")
-    const extractFontName = (fontValue: string): string | null => {
-      // Skip system fonts
-      if (fontValue.includes('system-ui') || fontValue.includes('-apple-system')) {
-        return null;
-      }
-      // Extract the font name from quotes
-      const match = fontValue.match(/'([^']+)'/);
-      return match ? match[1] : null;
-    };
-
     // Build dynamic Google Fonts import with only selected fonts
     const selectedFonts = new Set<string>();
-    [settings.transcriptFont, settings.japaneseFont, settings.koreanFont].forEach(font => {
-      const fontName = extractFontName(font);
-      if (fontName) {
-        selectedFonts.add(fontName);
+    const customImports = new Set<string>();
+
+    // Helper to detect if URL is a direct font file
+    const isFontFileUrl = (url: string): boolean => {
+      const fontExtensions = ['.woff2', '.woff', '.ttf', '.otf', '.eot'];
+      const lowerUrl = url.toLowerCase();
+      return fontExtensions.some(ext => lowerUrl.includes(ext)) ||
+        // Also check for font hosting services that might not have extension in URL
+        (url.includes('ufs.sh') || url.includes('fonts.') || url.includes('font'));
+    };
+
+    // Helper to detect font format from URL
+    const getFontFormat = (url: string): string => {
+      const lowerUrl = url.toLowerCase();
+      if (lowerUrl.includes('.woff2')) return 'woff2';
+      if (lowerUrl.includes('.woff')) return 'woff';
+      if (lowerUrl.includes('.ttf')) return 'truetype';
+      if (lowerUrl.includes('.otf')) return 'opentype';
+      if (lowerUrl.includes('.eot')) return 'embedded-opentype';
+      return 'woff2'; // Default assumption for unknown
+    };
+
+    [
+      { font: settings.transcriptFont, imp: settings.transcriptFontImport },
+      { font: settings.japaneseFont, imp: settings.japaneseFontImport },
+      { font: settings.koreanFont, imp: settings.koreanFontImport }
+    ].forEach(({ font, imp }) => {
+      if (imp) {
+        let formattedImp = imp.trim();
+        const fontName = extractFontName(font);
+
+        // Check if it's already a complete @import or @font-face
+        if (formattedImp.startsWith('@import') || formattedImp.startsWith('@font-face')) {
+          customImports.add(formattedImp);
+        }
+        // Check if it's a direct font file URL
+        else if (formattedImp.startsWith('http') && isFontFileUrl(formattedImp)) {
+          const format = getFontFormat(formattedImp);
+          const fontFaceRule = `@font-face {
+  font-family: '${fontName || 'CustomFont'}';
+  src: url('${formattedImp}') format('${format}');
+  font-weight: 400 700;
+  font-display: swap;
+}`;
+          customImports.add(fontFaceRule);
+        }
+        // Plain CSS URL - wrap in @import
+        else if (formattedImp.startsWith('http')) {
+          customImports.add(`@import url('${formattedImp}');`);
+        }
+        // Something else, leave as-is
+        else {
+          customImports.add(formattedImp);
+        }
+      } else {
+        // Otherwise try to extract for Google Fonts
+        const fontName = extractFontName(font);
+        if (fontName) {
+          selectedFonts.add(fontName);
+        }
       }
     });
 
-    // Build the Google Fonts URL
+    // Build the Google Fonts URL for those that don't have custom imports
     let fontImport = '';
     if (selectedFonts.size > 0) {
       const fontParams = Array.from(selectedFonts)
@@ -1406,7 +1697,10 @@ const CSSCustomizer: React.FC = () => {
       fontImport = `@import url('https://fonts.googleapis.com/css2?${fontParams}&display=swap');`;
     }
 
-    return `${fontImport}
+    // Combine with custom imports
+    const allImports = [fontImport, ...Array.from(customImports)].filter(Boolean).join('\n');
+
+    return `${allImports}
 .transcript-line {
   font-size: ${settings.transcriptSize}rem !important;
   font-weight: 600 !important;
@@ -1653,6 +1947,7 @@ ${!settings.showKorean ? `
                   <div className="flex-1">
                     <FontSelector
                       fonts={sourceLanguage === 'ja' ? JAPANESE_FONTS : sourceLanguage === 'ko' ? KOREAN_FONTS : FONT_OPTIONS}
+                      additionalFonts={customFonts}
                       value={sourceLanguage === 'ja' ? settings.japaneseFont : sourceLanguage === 'ko' ? settings.koreanFont : settings.transcriptFont}
                       onChange={(value) => {
                         if (sourceLanguage === 'ja') {
@@ -1663,10 +1958,26 @@ ${!settings.showKorean ? `
                           updateSetting('transcriptFont', value);
                         }
                       }}
+                      onRemoveFont={removeCustomFont}
                       label={getLanguageConfig().sourceFontLabel}
                       onFontLoad={loadFont}
                       translations={t}
                     />
+                    <div className="mt-1 flex justify-end">
+                      <button
+                        onClick={() => {
+                          const type = sourceLanguage === 'ja' ? 'japanese' : sourceLanguage === 'ko' ? 'korean' : 'transcript';
+                          setEditingCustomFontType(type);
+                          setCustomFontInput({
+                            name: extractFontName(sourceLanguage === 'ja' ? settings.japaneseFont : sourceLanguage === 'ko' ? settings.koreanFont : settings.transcriptFont) || '',
+                            importUrl: (sourceLanguage === 'ja' ? settings.japaneseFontImport : sourceLanguage === 'ko' ? settings.koreanFontImport : settings.transcriptFontImport) || ''
+                          });
+                        }}
+                        className="text-xs text-[#2196F3] hover:text-[#4fc3f7] transition-colors flex items-center gap-1"
+                      >
+                        <span className="text-lg">+</span> {t.customFont}
+                      </button>
+                    </div>
                   </div>
                   <div className="pt-7">
                     <button
@@ -1689,6 +2000,7 @@ ${!settings.showKorean ? `
                       <div className="flex-1">
                         <FontSelector
                           fonts={fontConfig.code === 'ja' ? JAPANESE_FONTS : fontConfig.code === 'ko' ? KOREAN_FONTS : FONT_OPTIONS}
+                          additionalFonts={customFonts}
                           value={fontConfig.code === 'ja' ? settings.japaneseFont : fontConfig.code === 'ko' ? settings.koreanFont : settings.transcriptFont}
                           onChange={(value) => {
                             if (fontConfig.code === 'ja') {
@@ -1699,10 +2011,26 @@ ${!settings.showKorean ? `
                               updateSetting('transcriptFont', value);
                             }
                           }}
+                          onRemoveFont={removeCustomFont}
                           label={fontConfig.label}
                           onFontLoad={loadFont}
                           translations={t}
                         />
+                        <div className="mt-1 flex justify-end">
+                          <button
+                            onClick={() => {
+                              const type = fontConfig.code === 'ja' ? 'japanese' : fontConfig.code === 'ko' ? 'korean' : 'transcript';
+                              setEditingCustomFontType(type);
+                              setCustomFontInput({
+                                name: extractFontName(fontConfig.code === 'ja' ? settings.japaneseFont : fontConfig.code === 'ko' ? settings.koreanFont : settings.transcriptFont) || '',
+                                importUrl: (fontConfig.code === 'ja' ? settings.japaneseFontImport : fontConfig.code === 'ko' ? settings.koreanFontImport : settings.transcriptFontImport) || ''
+                              });
+                            }}
+                            className="text-xs text-[#2196F3] hover:text-[#4fc3f7] transition-colors flex items-center gap-1"
+                          >
+                            <span className="text-lg">+</span> {t.customFont}
+                          </button>
+                        </div>
                       </div>
                       <div className="pt-7">
                         <button
@@ -2360,6 +2688,54 @@ ${!settings.showKorean ? `
           )}
         </div>
       </div>
+
+      {/* Custom Font Modal */}
+      {editingCustomFontType && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#2d2d2d] border border-[#efefef]/20 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-bold mb-2">{t.customFont}</h3>
+            <p className="text-sm text-[#efefef]/60 mb-6">{t.customFontInstructions}</p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">{t.fontNameLabel}</label>
+                <input
+                  type="text"
+                  value={customFontInput.name}
+                  onChange={(e) => setCustomFontInput({ ...customFontInput, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-[#1e1e1e] border border-[#efefef]/20 rounded-lg text-[#efefef] focus:ring-2 focus:ring-[#2196F3]/50 focus:outline-none"
+                  placeholder="e.g. My Custom Font"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">{t.importUrlLabel}</label>
+                <textarea
+                  value={customFontInput.importUrl}
+                  onChange={(e) => setCustomFontInput({ ...customFontInput, importUrl: e.target.value })}
+                  className="w-full px-3 py-2 bg-[#1e1e1e] border border-[#efefef]/20 rounded-lg text-[#efefef] focus:ring-2 focus:ring-[#2196F3]/50 focus:outline-none min-h-[100px] font-mono text-xs"
+                  placeholder="@import url('...');"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setEditingCustomFontType(null)}
+                  className="flex-1 px-4 py-2 bg-[#404040] hover:bg-[#505050] rounded-lg transition-colors"
+                >
+                  {t.cancel}
+                </button>
+                <button
+                  onClick={() => updateCustomFont(editingCustomFontType, customFontInput.name, customFontInput.importUrl)}
+                  className="flex-1 px-4 py-2 bg-[#2196F3] hover:bg-[#1976D2] rounded-lg font-semibold transition-colors"
+                >
+                  {t.save}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
