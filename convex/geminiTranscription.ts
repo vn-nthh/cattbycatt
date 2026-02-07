@@ -12,7 +12,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
 
 // Helper function to build transcription prompt with optional keyterms
 function buildTranscriptionPrompt(languageName: string, keyterms?: string[]): string {
-  let prompt = `Transcribe the following audio accurately. The audio is in ${languageName}. Return ONLY the transcribed text, nothing else. If the audio is silent or contains no speech, return an empty string.`;
+  let prompt = `Transcribe the following audio accurately. The audio is in ${languageName}. Return ONLY the transcribed text, nothing else. If the audio is silent or contains no speech, return an empty string. Do not add any additional text or explanation.`;
 
   if (keyterms && keyterms.length > 0) {
     // Security: shuffle keyterms to mitigate prompt injection
