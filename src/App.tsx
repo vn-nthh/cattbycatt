@@ -274,9 +274,9 @@ function Content() {
   const [showKeytermsPanel, setShowKeytermsPanel] = useState(false);
 
   // Check if current ASR model supports keyterms
-  // NOTE: Keyterm feature disabled - Deepgram and Google STT keyterm APIs don't work reliably
-  // See .agent/agent.md for details. Code kept for future use.
-  const supportsKeyterms = false;
+  // NOTE: Deepgram and Google STT keyterm APIs don't work reliably (see .agent/agent.md)
+  // Gemini uses prompt injection which does work
+  const supportsKeyterms = asrModel === 'gemini';
 
   // UI language state to trigger re-renders when changed
   const [uiLanguage, setUiLanguage] = useState(() => {
@@ -424,9 +424,9 @@ function Content() {
               throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB. Please speak for shorter periods.`);
             }
 
-            // Pass keyterms if supported
+            // Pass keyterms if supported (Gemini uses prompt injection)
             let keyterms = undefined;
-            if (selectedAsrModel === 'google-stt') {
+            if (selectedAsrModel === 'gemini') {
               const saved = localStorage.getItem('asr_keyterms');
               if (saved) {
                 try {
