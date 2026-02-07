@@ -32,6 +32,23 @@ This document outlines the environment variables required for the CATT by Catt a
 - **How to set**: `convex env set DEEPGRAM_API_KEY your_deepgram_api_key_here`
 - **Get API Key**: Visit [https://console.deepgram.com/](https://console.deepgram.com/) to obtain your API key
 
+### Google Cloud Speech-to-Text API
+- **Variable Name**: `GOOGLE_STT_CREDENTIALS`
+- **Description**: Service account JSON credentials for Google Cloud Speech-to-Text
+- **Usage**: Used when "Google Speech-to-Text V2" ASR model is selected for high-accuracy streaming recognition
+- **How to set**: 
+  1. Go to [Google Cloud Console → Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
+  2. Create a service account with "Cloud Speech Client" role
+  3. Create a JSON key for the service account
+  4. Copy the entire JSON content and paste it as the value in Convex Dashboard → Settings → Environment Variables
+
+### Google STT Streaming Proxy (Optional)
+- **Variable Name**: `VITE_GOOGLE_STT_PROXY_URL`
+- **Description**: WebSocket URL for the Google STT streaming proxy server
+- **Usage**: Enables real-time streaming with interim results. If not set, falls back to VAD-based approach
+- **How to set**: Add to `.env.local`: `VITE_GOOGLE_STT_PROXY_URL=wss://your-proxy-url.run.app`
+- **Deployment**: See `google-stt-proxy/README.md` for Cloud Run deployment instructions
+
 ## Deprecated Environment Variables
 
 ### OpenAI API (Deprecated for Translation)
@@ -56,6 +73,9 @@ convex env set GEMINI_API_KEY your_gemini_api_key_here
 
 # Set Deepgram API key for Nova-3 ASR
 convex env set DEEPGRAM_API_KEY your_deepgram_api_key_here
+
+# Set Google API key for Google Speech-to-Text V2 ASR
+convex env set GOOGLE_STT_API_KEY your_google_api_key_here
 ```
 
 ## Verification

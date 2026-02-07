@@ -35,18 +35,18 @@ async function performTranscription(audioBlob: ArrayBuffer, language: string): P
   try {
     // Convert ArrayBuffer to Buffer for Node.js compatibility
     const audioBuffer = Buffer.from(audioBlob);
-    
+
     // Check file size - Use reasonable limit for Groq API
     const fileSizeInMB = audioBuffer.length / (1024 * 1024);
     console.log(`[GROQ] Audio file size: ${fileSizeInMB.toFixed(2)} MB`);
-    
+
     if (fileSizeInMB > 25) {
       throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB. Maximum allowed: 25 MB`);
     }
-    
+
     // Create multipart form data manually
     const boundary = `----formdata-convex-${Date.now()}`;
-    const formData = [
+    const formDataParts = [
       `--${boundary}`,
       'Content-Disposition: form-data; name="file"; filename="audio.wav"',
       'Content-Type: audio/wav',
@@ -68,9 +68,11 @@ async function performTranscription(audioBlob: ArrayBuffer, language: string): P
       'Content-Disposition: form-data; name="temperature"',
       '',
       '0.0',
-      `--${boundary}--`
-    ].join('\r\n');
-    
+      `--${boundary}--`,
+    ];
+
+    const formDataBody = formDataParts.join('\r\n');
+
     // Make direct HTTP request to Groq API
     const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
@@ -78,19 +80,19 @@ async function performTranscription(audioBlob: ArrayBuffer, language: string): P
         'Authorization': `Bearer ${groqApiKey}`,
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
       },
-      body: Buffer.from(formData, 'binary'),
+      body: Buffer.from(formDataBody, 'binary'),
     });
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
-    
+
     const transcription = await response.json();
 
     // Extract text and confidence from the response
     const text = transcription.text || '';
-    
+
     // Calculate confidence from segments if available
     let confidence: number | undefined = undefined;
     if (transcription.segments && Array.isArray(transcription.segments) && transcription.segments.length > 0) {
@@ -105,20 +107,20 @@ async function performTranscription(audioBlob: ArrayBuffer, language: string): P
       confidence,
       segmentsCount: transcription.segments?.length || 0
     });
-    
+
     return {
       text: text.trim(),
       confidence,
     };
   } catch (error) {
     console.error('Groq SDK error:', error);
-    
+
     // Log more details about the error for debugging
     if (error instanceof Error) {
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
     }
-    
+
     throw new Error(`Groq transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

@@ -1,0 +1,17 @@
+{
+    "name": "google-stt-proxy",
+    "version": "1.0.0",
+    "description": "WebSocket proxy for Google Speech-to-Text streaming",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "dev": "node server.js"
+    },
+    "dependencies": {
+        "@google-cloud/speech": "^6.0.0",
+        "ws": "^8.16.0"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}

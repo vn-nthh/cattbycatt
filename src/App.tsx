@@ -45,6 +45,8 @@ interface MainAppTranslations {
   asrWhisper: string;
   asrGemini: string;
   asrDeepgram: string;
+  asrGoogleStt: string;
+  asrGoogleSttStreaming: string;
   translation: string;
   translationGemini: string;
   translationGpt: string;
@@ -80,6 +82,8 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWhisper: "Whisper",
     asrGemini: "Gemini",
     asrDeepgram: "Nova-3 (Deepgram)",
+    asrGoogleStt: "Google STT (VAD)",
+    asrGoogleSttStreaming: "Google STT (Streaming)",
     translation: "Translation",
     translationGemini: "Default (Gemini 2.5 Flash Lite)",
     translationGpt: "GPT-4 Nano",
@@ -106,6 +110,8 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWhisper: "Whisper",
     asrGemini: "Gemini",
     asrDeepgram: "Nova-3 (Deepgram)",
+    asrGoogleStt: "Google STT (VAD)",
+    asrGoogleSttStreaming: "Google STT (ストリーミング)",
     translation: "翻訳",
     translationGemini: "デフォルト（Gemini 2.5 Flash Lite）",
     translationGpt: "GPT-4 Nano",
@@ -132,6 +138,8 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWhisper: "Whisper",
     asrGemini: "Gemini",
     asrDeepgram: "Nova-3 (Deepgram)",
+    asrGoogleStt: "Google STT (VAD)",
+    asrGoogleSttStreaming: "Google STT (스트리밍)",
     translation: "번역",
     translationGemini: "기본값 (Gemini 2.5 Flash Lite)",
     translationGpt: "GPT-4 Nano",
@@ -251,7 +259,7 @@ function Content() {
   const [isStarted, setIsStarted] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [useGpt, setUseGpt] = useState(false);
-  const [asrModel, setAsrModel] = useState<'webspeech' | 'whisper' | 'gemini' | 'deepgram'>('webspeech');
+  const [asrModel, setAsrModel] = useState<'webspeech' | 'whisper' | 'gemini' | 'deepgram' | 'google-stt' | 'google-stt-streaming'>('webspeech');
 
 
 
@@ -259,6 +267,16 @@ function Content() {
   const [micVAD, setMicVAD] = useState<MicVAD | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [vadStatus, setVadStatus] = useState<'idle' | 'listening' | 'speaking' | 'processing'>('idle');
+
+  // Keyterm state
+  const [keytermsInput, setKeytermsInput] = useState('');
+  const [keytermsPills, setKeytermsPills] = useState<string[]>([]);
+  const [showKeytermsPanel, setShowKeytermsPanel] = useState(false);
+
+  // Check if current ASR model supports keyterms
+  // NOTE: Keyterm feature disabled - Deepgram and Google STT keyterm APIs don't work reliably
+  // See .agent/agent.md for details. Code kept for future use.
+  const supportsKeyterms = false;
 
   // UI language state to trigger re-renders when changed
   const [uiLanguage, setUiLanguage] = useState(() => {
@@ -286,6 +304,7 @@ function Content() {
   const transcribeWithGroq = useAction(api.groqTranscription.transcribeAudioStream);
   const transcribeWithGemini = useAction(api.geminiTranscription.transcribeAudioStream);
   const transcribeWithDeepgram = useAction(api.deepgramTranscription.transcribeAudioStream);
+  const transcribeWithGoogleStt = useAction(api.googleSttTranscription.transcribeAudioStream);
   const sessionIdRef = useRef(getSessionId());
 
   // Add ref to track if we want to keep listening (for proper cleanup)
@@ -305,6 +324,13 @@ function Content() {
   const accumulatedTranscriptRef = useRef<string>("");
   // const deepgramSilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const getDeepgramApiKey = useAction(api.deepgramTranscription.getDeepgramApiKey);
+  // Google STT streaming uses WebSocket proxy or falls back to VAD
+
+  // Google STT Streaming Refs
+  const googleSttWsRef = useRef<WebSocket | null>(null);
+  const googleSttMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const googleSttAccumulatedRef = useRef<string>("");
+  const googleSttStreamRef = useRef<MediaStream | null>(null);
 
   // Initialize silent audio
   useEffect(() => {
@@ -348,14 +374,16 @@ function Content() {
   }, [sourceLanguage]);
 
 
-  // Initialize MicVAD for Advanced ASR
-  const initializeAdvancedASR = async (selectedAsrModel: 'whisper' | 'gemini' | 'deepgram') => {
+  // Initialize MicVAD for Advanced ASR (Whisper, Gemini, Google STT VAD)
+  const initializeAdvancedASR = async (selectedAsrModel: 'whisper' | 'gemini' | 'deepgram' | 'google-stt') => {
     // Select the appropriate transcription function based on ASR model
     let transcribeAudio;
     if (selectedAsrModel === 'gemini') {
       transcribeAudio = transcribeWithGemini;
     } else if (selectedAsrModel === 'deepgram') {
       transcribeAudio = transcribeWithDeepgram;
+    } else if (selectedAsrModel === 'google-stt') {
+      transcribeAudio = transcribeWithGoogleStt;
     } else {
       transcribeAudio = transcribeWithGroq;
     }
@@ -396,10 +424,24 @@ function Content() {
               throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB. Please speak for shorter periods.`);
             }
 
+            // Pass keyterms if supported
+            let keyterms = undefined;
+            if (selectedAsrModel === 'google-stt') {
+              const saved = localStorage.getItem('asr_keyterms');
+              if (saved) {
+                try {
+                  keyterms = JSON.parse(saved);
+                } catch (e) {
+                  console.warn('Failed to parse keyterms from localStorage', e);
+                }
+              }
+            }
+
             const result = await transcribeAudio({
               audioBlob: wavBuffer,
               language: sourceLanguage,
               sessionId: sessionIdRef.current,
+              ...(keyterms && { keyterms })
             });
 
             if (result.text.trim()) {
@@ -463,7 +505,7 @@ function Content() {
     try {
       const apiKey = await getDeepgramApiKey();
 
-      // Deepgram WebSocket URL
+      // Deepgram WebSocket URL with keyterms support
       const params = new URLSearchParams({
         model: 'nova-3',
         language: sourceLanguage,
@@ -472,6 +514,39 @@ function Content() {
         endpointing: '500',
         utterance_end_ms: '1000',
       });
+
+      // Add keyterms if configured (stored in localStorage)
+      const savedKeyterms = localStorage.getItem('asr_keyterms');
+      console.log('[DEEPGRAM DEBUG] savedKeyterms from localStorage:', savedKeyterms);
+      if (savedKeyterms) {
+        try {
+          const keyterms = JSON.parse(savedKeyterms) as string[];
+          keyterms.forEach(term => {
+            // Add keyterm for better recognition
+            params.append('keyterm', term);
+
+            // Also add find-and-replace for guaranteed formatting
+            // The find term must be lowercase, replacement can be any case
+            const lowerTerm = term.toLowerCase();
+            if (lowerTerm !== term) {
+              // If term has uppercase, add replacement rule
+              params.append('replace', `${lowerTerm}:${term}`);
+            }
+
+            // Also add replacement for common variations without special chars
+            const simpleTerm = term.replace(/[:\-_]/g, ' ').toLowerCase().trim();
+            if (simpleTerm !== lowerTerm && simpleTerm !== term.toLowerCase()) {
+              params.append('replace', `${simpleTerm}:${term}`);
+            }
+          });
+          console.log('[DEEPGRAM] Using keyterms:', keyterms);
+          console.log('[DEEPGRAM DEBUG] Final URL params:', params.toString());
+        } catch {
+          console.warn('[DEEPGRAM] Failed to parse keyterms');
+        }
+      } else {
+        console.log('[DEEPGRAM DEBUG] No keyterms found in localStorage');
+      }
 
       const ws = new WebSocket(
         `wss://api.deepgram.com/v1/listen?${params.toString()}`,
@@ -572,6 +647,160 @@ function Content() {
     }
   };
 
+  // Initialize Google STT gRPC Streaming via WebSocket Proxy
+  const initializeGoogleSttStreaming = async () => {
+    // Get proxy URL from environment or fall back to VAD approach
+    const proxyUrl = import.meta.env.VITE_GOOGLE_STT_PROXY_URL;
+
+    if (!proxyUrl) {
+      console.log('[GOOGLE_STT] No proxy URL configured, falling back to VAD approach');
+      // Fall back to VAD approach
+      const vad = await initializeAdvancedASR('whisper'); // Use Whisper's VAD pattern with Google STT
+      if (vad) {
+        vad.start();
+        setIsRecording(true);
+      }
+      return;
+    }
+
+    try {
+      console.log('[GOOGLE_STT] Initializing WebSocket streaming...');
+
+      // Map language code
+      const languageCodeMap: Record<string, string> = {
+        'en': 'en-US',
+        'ja': 'ja-JP',
+        'ko': 'ko-KR',
+      };
+      const languageCode = languageCodeMap[sourceLanguage] || 'en-US';
+
+      // Build WebSocket URL with keyterms
+      let wsUrl = `${proxyUrl}?language=${languageCode}`;
+
+      // Add keyterms if configured
+      const savedKeyterms = localStorage.getItem('asr_keyterms');
+      console.log('[GOOGLE_STT DEBUG] savedKeyterms from localStorage:', savedKeyterms);
+      if (savedKeyterms) {
+        try {
+          const keyterms = JSON.parse(savedKeyterms) as string[];
+          keyterms.forEach(term => {
+            wsUrl += `&keyterms=${encodeURIComponent(term)}`;
+          });
+          console.log('[GOOGLE_STT] Using keyterms:', keyterms);
+          console.log('[GOOGLE_STT DEBUG] Final wsUrl:', wsUrl);
+        } catch {
+          console.warn('[GOOGLE_STT] Failed to parse keyterms');
+        }
+      } else {
+        console.log('[GOOGLE_STT DEBUG] No keyterms found in localStorage');
+      }
+
+      // Connect to WebSocket proxy
+      const ws = new WebSocket(wsUrl);
+      googleSttWsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('[GOOGLE_STT] WebSocket connected');
+      };
+
+      ws.onmessage = async (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          if (data.type === 'ready') {
+            console.log('[GOOGLE_STT] Server ready, starting audio capture');
+            startGoogleSttMediaRecorder(ws);
+          } else if (data.type === 'result') {
+            const { transcript, isFinal, confidence } = data;
+
+            if (transcript) {
+              if (isFinal) {
+                // Final result - translate it
+                const finalText = transcript;
+                console.log('[GOOGLE_STT] Final result, translating:', finalText);
+
+                const targetLanguages = Object.keys(LANGUAGES).filter(lang => lang !== sourceLanguage);
+
+                try {
+                  const translationsResult = await Promise.all(
+                    targetLanguages.map(targetLang =>
+                      translateText({
+                        text: finalText,
+                        sourceLanguage,
+                        targetLanguage: targetLang,
+                        useGpt,
+                      }).then(translation => ({ lang: targetLang, translation }))
+                    )
+                  );
+
+                  const newTranslations = translationsResult.reduce(
+                    (acc, { lang, translation }) => ({
+                      ...acc,
+                      [lang]: translation,
+                    }),
+                    {}
+                  );
+
+                  setTranslations(newTranslations);
+                } catch (err) {
+                  console.error('[GOOGLE_STT] Translation failed:', err);
+                }
+
+                // Show final result and reset for next sentence
+                setTranscript(finalText);
+                currentTranscriptRef.current = finalText;
+                googleSttAccumulatedRef.current = '';
+              } else {
+                // Interim result - show it
+                setTranscript(transcript);
+                currentTranscriptRef.current = transcript;
+              }
+            }
+          } else if (data.type === 'error') {
+            console.error('[GOOGLE_STT] Server error:', data.error);
+          }
+        } catch (err) {
+          console.error('[GOOGLE_STT] Failed to parse message:', err);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('[GOOGLE_STT] WebSocket error:', error);
+      };
+
+      ws.onclose = () => {
+        console.log('[GOOGLE_STT] WebSocket closed');
+      };
+
+    } catch (error) {
+      console.error('[GOOGLE_STT] Initialization failed:', error);
+    }
+  };
+
+  // Start MediaRecorder for Google STT WebSocket streaming
+  const startGoogleSttMediaRecorder = async (ws: WebSocket) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      googleSttStreamRef.current = stream;
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+          ws.send(event.data);
+        }
+      };
+
+      mediaRecorder.start(250); // Send 250ms chunks
+      googleSttMediaRecorderRef.current = mediaRecorder;
+      setIsRecording(true);
+
+      console.log('[GOOGLE_STT] MediaRecorder started');
+    } catch (error) {
+      console.error('[GOOGLE_STT] MediaRecorder failed:', error);
+    }
+  };
+
   // Helper function to convert Float32Array to WAV format
   const float32ArrayToWav = (buffer: Float32Array, sampleRate: number): ArrayBuffer => {
     const length = buffer.length;
@@ -624,11 +853,34 @@ function Content() {
     // Start silent audio to keep tab active
     audioRef.current?.play().catch(e => console.log("Audio play failed", e));
 
-    // Use Advanced ASR (MicVAD + Whisper/Gemini) or Deepgram Streaming if enabled
+    // Use Advanced ASR (MicVAD + Whisper/Gemini/Google STT VAD) or streaming (Deepgram/Google STT Streaming) if enabled
     if (asrModel !== 'webspeech') {
+      // Save keyterms to localStorage for supported models
+      console.log('[ASR DEBUG] supportsKeyterms:', supportsKeyterms, 'keytermsPills:', keytermsPills);
+      if (supportsKeyterms && keytermsPills.length > 0) {
+        const keyterms = keytermsPills.map(term => term.replace(/_/g, ' '));
+        localStorage.setItem('asr_keyterms', JSON.stringify(keyterms));
+        console.log('[ASR] Keyterms locked in:', keyterms);
+      } else {
+        localStorage.removeItem('asr_keyterms');
+        console.log('[ASR DEBUG] Keyterms removed - supportsKeyterms:', supportsKeyterms, 'keytermsPills.length:', keytermsPills.length);
+      }
+
       if (asrModel === 'deepgram') {
         initializeDeepgramStreaming();
+      } else if (asrModel === 'google-stt-streaming') {
+        // Use WebSocket streaming for Google STT
+        initializeGoogleSttStreaming();
+      } else if (asrModel === 'google-stt') {
+        // Use VAD-based approach for Google STT
+        initializeAdvancedASR('google-stt').then(vad => {
+          if (vad) {
+            vad.start();
+            setIsRecording(true);
+          }
+        });
       } else {
+        // Use VAD-based approach for Whisper, Gemini
         initializeAdvancedASR(asrModel).then(vad => {
           if (vad) {
             vad.start();
@@ -651,6 +903,21 @@ function Content() {
           mediaRecorderRef.current = null;
         }
         accumulatedTranscriptRef.current = "";
+
+        // Cleanup Google STT
+        if (googleSttWsRef.current) {
+          googleSttWsRef.current.close();
+          googleSttWsRef.current = null;
+        }
+        if (googleSttMediaRecorderRef.current) {
+          googleSttMediaRecorderRef.current.stop();
+          googleSttMediaRecorderRef.current = null;
+        }
+        if (googleSttStreamRef.current) {
+          googleSttStreamRef.current.getTracks().forEach(track => track.stop());
+          googleSttStreamRef.current = null;
+        }
+        googleSttAccumulatedRef.current = "";
 
         // Cleanup VAD
         if (micVAD) {
@@ -892,223 +1159,308 @@ function Content() {
   const displayTranscript = transcript;
 
   return (
-    <div className="flex flex-col w-full rounded-xl bg-[#2d2d2d] overflow-hidden shadow-2xl relative">
-      {!isStarted ? (
-        <div className="flex flex-col pt-16 px-8 pb-20 relative w-full max-w-[450px] responsive-container">
-          {/* Logo Button - Top Center */}
-          <div className="flex justify-center mb-16">
-            <button
-              onClick={sourceLanguage ? startListening : undefined}
-              disabled={!sourceLanguage}
-              className={`transition-all duration-200 ${sourceLanguage
-                ? "cursor-pointer hover:scale-105 active:scale-95"
-                : "opacity-50 cursor-not-allowed"
-                }`}
-              title={sourceLanguage ? t.startListening : t.selectLanguage}
+    <div className="relative">
+      {/* Keyterms UI - Positioned OUTSIDE/BELOW the main container */}
+      {!isStarted && supportsKeyterms && (
+        <>
+          {/* Toggle Circle - bottom-right of main container, aligned to bottom edge */}
+          <button
+            onClick={() => setShowKeytermsPanel(!showKeytermsPanel)}
+            className="absolute -right-8 bottom-0 w-6 h-6 bg-[#2d2d2d] hover:bg-[#404040] rounded-full flex items-center justify-center transition-all z-10 shadow-lg border border-[#efefef]/20"
+            title="Toggle keyterms"
+          >
+            <svg
+              className={`w-3.5 h-3.5 text-[#efefef] transition-transform duration-300 ${showKeytermsPanel ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              <img
-                src="/catt_logo_white.png"
-                alt="CATT Logo"
-                className="w-14 h-14"
-              />
-            </button>
-          </div>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
 
-          {/* Dropdowns Container */}
-          <div className="flex flex-col gap-3 w-full">
-            {/* Language Dropdown */}
-            <div className="flex items-center gap-4">
-              <label className="text-xl text-[#606060] uppercase tracking-wide label-stroke min-w-[140px] shrink-0">
-                {t.languages}
+          {/* Keyterms Input Panel - Full width below the container, matched color */}
+          {showKeytermsPanel && (
+            <div className="absolute top-[calc(100%+0.5rem)] left-0 w-full bg-[#2d2d2d] rounded-lg p-4 shadow-xl z-20 border border-[#efefef]/10">
+              <label className="text-sm text-[#efefef] mb-2 block font-medium opacity-80">
+                Keyterms
               </label>
-              <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
-                <select
-                  className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
-                  value={sourceLanguage}
-                  onChange={(e) => {
-                    const selectedLang = e.target.value;
-                    setSourceLanguage(selectedLang);
-                    updateUILanguageFromSource(selectedLang);
-                  }}
-                >
-                  <option value="">{t.selectLanguage}</option>
-                  {Object.entries(LANGUAGES).map(([code]) => {
-                    const languageNameMap: Record<string, string> = {
-                      en: t.languageEnglish,
-                      ja: t.languageJapanese,
-                      ko: t.languageKorean,
-                    };
-                    return (
-                      <option key={code} value={code}>
-                        {languageNameMap[code]}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-            </div>
-
-            {/* ASR Model Dropdown */}
-            <div className="flex items-center gap-4">
-              <label className="text-xl text-[#606060] uppercase tracking-wide label-stroke min-w-[140px] shrink-0">
-                {t.asrModel}
-              </label>
-              <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
-                <select
-                  className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
-                  value={asrModel}
-                  onChange={(e) => setAsrModel(e.target.value as 'webspeech' | 'whisper' | 'gemini' | 'deepgram')}
-                >
-                  <option value="webspeech">{t.asrWebSpeech}</option>
-                  <option value="whisper">{t.asrWhisper}</option>
-                  <option value="gemini">{t.asrGemini}</option>
-                  <option value="deepgram">{t.asrDeepgram}</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Translation Model Dropdown */}
-            <div className="flex items-center gap-4">
-              <label className="text-xl text-[#606060] uppercase tracking-wide label-stroke min-w-[140px] shrink-0">
-                {t.translation}
-              </label>
-              <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
-                <select
-                  className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
-                  value={useGpt ? "gpt" : "gemini"}
-                  onChange={(e) => setUseGpt(e.target.value === "gpt")}
-                >
-                  <option value="gemini">{t.translationGemini}</option>
-                  <option value="gpt">{t.translationGpt}</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Outline SVG - Bottom, half visible (midpoint at container bottom) */}
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-full flex justify-center pointer-events-none z-0">
-            <img
-              src="/outline.svg"
-              alt=""
-              className="w-full max-w-[400px] h-auto opacity-40"
-            />
-          </div>
-
-          {/* Typewriter Carousel Tagline - Positioned over the SVG */}
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full flex justify-center z-10 pb-4">
-            <TypewriterCarousel scrambleSpeed={100} pauseDuration={8000} scrambleIterations={15} />
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col p-8 min-h-[70vh] w-full max-w-[520px] responsive-container">
-          {/* Header with logo and stop button */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-4">
-              <img
-                src="/catt_logo_white.png"
-                alt="CATT Logo"
-                className="w-10 h-10 opacity-80"
-              />
-              <h2 className="text-2xl text-[#606060] uppercase tracking-wide label-stroke">{t.console}</h2>
-            </div>
-            <button
-              onClick={stopListening}
-              className="px-5 py-2.5 rounded-lg text-sm bg-[#606060] text-[#efefef] border border-[#efefef]/30 hover:bg-[#707070] transition-colors"
-            >
-              {t.stopAndReset}
-            </button>
-          </div>
-
-          {/* Transcript and Translations */}
-          <div className="flex-1 flex flex-col gap-4 overflow-y-auto">
-            {/* Original Transcript */}
-            <div className="p-5 bg-[#1e1e1e]/60 rounded-lg border border-[#606060]/30">
-              <div className="text-sm uppercase text-[#606060] mb-2 tracking-wide label-stroke">
-                {t.original} ({LANGUAGES[sourceLanguage as keyof typeof LANGUAGES]})
-              </div>
-              <p className="text-xl text-[#efefef] min-h-[2.5rem] leading-relaxed font-readable">
-                {displayTranscript || (
-                  <span className="text-[#606060] animate-pulse font-readable">{t.listening}</span>
-                )}
-              </p>
-            </div>
-
-            {/* Translations - Always show all target languages */}
-            {Object.keys(LANGUAGES)
-              .filter(lang => lang !== sourceLanguage)
-              .map((lang) => (
-                <div key={lang} className="p-5 bg-[#1e1e1e]/40 rounded-lg border border-[#606060]/20">
-                  <div className="text-sm uppercase text-[#606060] mb-2 tracking-wide label-stroke">
-                    {LANGUAGES[lang as keyof typeof LANGUAGES]}
-                  </div>
-                  <p className="text-xl text-[#efefef] leading-relaxed font-readable">
-                    {translations[lang] || (
-                      <span className="text-[#606060] animate-pulse font-readable">{t.listening}</span>
-                    )}
+              <div
+                className="w-full min-h-[6rem] p-2 bg-[#606060] border border-[#efefef]/50 rounded-lg focus-within:border-[#efefef] transition-colors flex flex-wrap gap-2 content-start cursor-text relative"
+                style={{ fontFamily: "'Inter', sans-serif" }}
+                onClick={(e) => {
+                  const input = (e.currentTarget.querySelector('input') as HTMLInputElement);
+                  if (input) input.focus();
+                }}
+              >
+                {/* Placeholder text - shown when no pills */}
+                {keytermsPills.length === 0 && !keytermsInput && (
+                  <p className="absolute top-2 left-2 right-2 text-[#efefef]/50 text-sm pointer-events-none leading-relaxed">
+                    Add words commonly used to help listening models understand you better. Use Space to separate terms, and underscore to identify spaces.
                   </p>
-                </div>
-              ))}
-          </div>
-
-          {/* Footer Actions */}
-          <div className="mt-6 flex justify-center gap-4">
-            <button
-              onClick={() => {
-                const baseUrl = window.location.origin;
-                const fullUrl = `${baseUrl}${obsLinkWithSession}`;
-
-                navigator.clipboard.writeText(fullUrl)
-                  .then(() => {
-                    const copyIndicator = document.createElement('div');
-                    copyIndicator.textContent = 'Link copied!';
-                    copyIndicator.style.position = 'fixed';
-                    copyIndicator.style.bottom = '20px';
-                    copyIndicator.style.left = '50%';
-                    copyIndicator.style.transform = 'translateX(-50%)';
-                    copyIndicator.style.backgroundColor = '#606060';
-                    copyIndicator.style.color = '#efefef';
-                    copyIndicator.style.padding = '10px 20px';
-                    copyIndicator.style.borderRadius = '8px';
-                    copyIndicator.style.zIndex = '9999';
-                    copyIndicator.style.opacity = '0';
-                    copyIndicator.style.transition = 'opacity 0.3s ease-in-out';
-                    copyIndicator.style.fontFamily = 'Technotype34, sans-serif';
-
-                    document.body.appendChild(copyIndicator);
-
-                    setTimeout(() => {
-                      copyIndicator.style.opacity = '1';
-                    }, 10);
-
-                    setTimeout(() => {
-                      copyIndicator.style.opacity = '0';
-                      setTimeout(() => {
-                        document.body.removeChild(copyIndicator);
-                      }, 300);
-                    }, 2000);
-                  })
-                  .catch(() => {
-                    // Failed to copy to clipboard
-                  });
-              }}
-              className="flex items-center gap-2 px-5 py-3 rounded-lg bg-[#606060] text-[#efefef] border border-[#efefef]/30 hover:bg-[#707070] transition-all"
-            >
-              <span>{t.openObsView}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-              </svg>
-            </button>
-            <Link
-              to={cssCustomizerLinkWithSession}
-              target="_blank"
-              className="flex items-center gap-2 px-5 py-3 rounded-lg bg-[#1e1e1e]/60 text-[#606060] border border-[#606060]/30 hover:bg-[#1e1e1e] hover:text-[#efefef] transition-all"
-            >
-              <span>{t.customizeObs}</span>
-            </Link>
-          </div>
-        </div>
+                )}
+                {/* Pills */}
+                {keytermsPills.map((pill, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-[#404040] text-[#efefef] rounded-md text-sm"
+                  >
+                    {pill}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setKeytermsPills(prev => prev.filter((_, i) => i !== index));
+                      }}
+                      className="ml-1 text-[#efefef]/60 hover:text-[#efefef] transition-colors"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {/* Input */}
+                <input
+                  type="text"
+                  value={keytermsInput}
+                  onChange={(e) => setKeytermsInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ' && keytermsInput.trim()) {
+                      e.preventDefault();
+                      const term = keytermsInput.trim().replace(/_/g, ' ');
+                      setKeytermsPills(prev => [...prev, term]);
+                      setKeytermsInput('');
+                    } else if (e.key === 'Backspace' && !keytermsInput && keytermsPills.length > 0) {
+                      setKeytermsPills(prev => prev.slice(0, -1));
+                    }
+                  }}
+                  className="flex-1 min-w-[120px] bg-transparent text-[#efefef] outline-none text-sm"
+                  style={{ fontFamily: "'Inter', sans-serif" }}
+                />
+              </div>
+            </div>
+          )}
+        </>
       )}
+
+      <div className="flex flex-col w-full rounded-xl bg-[#2d2d2d] overflow-hidden shadow-2xl relative">
+        {!isStarted ? (
+          <div className="flex flex-col pt-16 px-8 pb-20 relative w-full max-w-[450px] responsive-container">
+            {/* Logo Button - Top Center */}
+            <div className="flex justify-center mb-16">
+              <button
+                onClick={sourceLanguage ? startListening : undefined}
+                disabled={!sourceLanguage}
+                className={`transition-all duration-200 ${sourceLanguage
+                  ? "cursor-pointer hover:scale-105 active:scale-95"
+                  : "opacity-50 cursor-not-allowed"
+                  }`}
+                title={sourceLanguage ? t.startListening : t.selectLanguage}
+              >
+                <img
+                  src="/catt_logo_white.png"
+                  alt="CATT Logo"
+                  className="w-14 h-14"
+                />
+              </button>
+            </div>
+
+            {/* Dropdowns Container */}
+            <div className="flex flex-col gap-3 w-full">
+              {/* Language Dropdown */}
+              <div className="flex items-center gap-4">
+                <label className="text-xl text-[#606060] uppercase tracking-wide label-stroke min-w-[140px] shrink-0">
+                  {t.languages}
+                </label>
+                <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
+                  <select
+                    className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
+                    value={sourceLanguage}
+                    onChange={(e) => {
+                      const selectedLang = e.target.value;
+                      setSourceLanguage(selectedLang);
+                      updateUILanguageFromSource(selectedLang);
+                    }}
+                  >
+                    <option value="">{t.selectLanguage}</option>
+                    {Object.entries(LANGUAGES).map(([code]) => {
+                      const languageNameMap: Record<string, string> = {
+                        en: t.languageEnglish,
+                        ja: t.languageJapanese,
+                        ko: t.languageKorean,
+                      };
+                      return (
+                        <option key={code} value={code}>
+                          {languageNameMap[code]}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
+
+              {/* ASR Model Dropdown */}
+              <div className="flex items-center gap-4">
+                <label className="text-xl text-[#606060] uppercase tracking-wide label-stroke min-w-[140px] shrink-0">
+                  {t.asrModel}
+                </label>
+                <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
+                  <select
+                    className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
+                    value={asrModel}
+                    onChange={(e) => setAsrModel(e.target.value as 'webspeech' | 'whisper' | 'gemini' | 'deepgram' | 'google-stt' | 'google-stt-streaming')}
+                  >
+                    <option value="webspeech">{t.asrWebSpeech}</option>
+                    <option value="whisper">{t.asrWhisper}</option>
+                    <option value="gemini">{t.asrGemini}</option>
+                    <option value="deepgram">{t.asrDeepgram}</option>
+                    <option value="google-stt">{t.asrGoogleStt}</option>
+                    <option value="google-stt-streaming">{t.asrGoogleSttStreaming}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Translation Model Dropdown */}
+              <div className="flex items-center gap-4">
+                <label className="text-xl text-[#606060] uppercase tracking-wide label-stroke min-w-[140px] shrink-0">
+                  {t.translation}
+                </label>
+                <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
+                  <select
+                    className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
+                    value={useGpt ? "gpt" : "gemini"}
+                    onChange={(e) => setUseGpt(e.target.value === "gpt")}
+                  >
+                    <option value="gemini">{t.translationGemini}</option>
+                    <option value="gpt">{t.translationGpt}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Outline SVG - Bottom, half visible (midpoint at container bottom) */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-full flex justify-center pointer-events-none z-0">
+              <img
+                src="/outline.svg"
+                alt=""
+                className="w-full max-w-[400px] h-auto opacity-40"
+              />
+            </div>
+
+            {/* Typewriter Carousel Tagline - Positioned over the SVG */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full flex justify-center z-10 pb-4">
+              <TypewriterCarousel scrambleSpeed={100} pauseDuration={8000} scrambleIterations={15} />
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col p-8 min-h-[70vh] w-full max-w-[520px] responsive-container">
+            {/* Header with logo and stop button */}
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-4">
+                <img
+                  src="/catt_logo_white.png"
+                  alt="CATT Logo"
+                  className="w-10 h-10 opacity-80"
+                />
+                <h2 className="text-2xl text-[#606060] uppercase tracking-wide label-stroke">{t.console}</h2>
+              </div>
+              <button
+                onClick={stopListening}
+                className="px-5 py-2.5 rounded-lg text-sm bg-[#606060] text-[#efefef] border border-[#efefef]/30 hover:bg-[#707070] transition-colors"
+              >
+                {t.stopAndReset}
+              </button>
+            </div>
+
+            {/* Transcript and Translations */}
+            <div className="flex-1 flex flex-col gap-4 overflow-y-auto">
+              {/* Original Transcript */}
+              <div className="p-5 bg-[#1e1e1e]/60 rounded-lg border border-[#606060]/30">
+                <div className="text-sm uppercase text-[#606060] mb-2 tracking-wide label-stroke">
+                  {t.original} ({LANGUAGES[sourceLanguage as keyof typeof LANGUAGES]})
+                </div>
+                <p className="text-xl text-[#efefef] min-h-[2.5rem] leading-relaxed font-readable">
+                  {displayTranscript || (
+                    <span className="text-[#606060] animate-pulse font-readable">{t.listening}</span>
+                  )}
+                </p>
+              </div>
+
+              {/* Translations - Always show all target languages */}
+              {Object.keys(LANGUAGES)
+                .filter(lang => lang !== sourceLanguage)
+                .map((lang) => (
+                  <div key={lang} className="p-5 bg-[#1e1e1e]/40 rounded-lg border border-[#606060]/20">
+                    <div className="text-sm uppercase text-[#606060] mb-2 tracking-wide label-stroke">
+                      {LANGUAGES[lang as keyof typeof LANGUAGES]}
+                    </div>
+                    <p className="text-xl text-[#efefef] leading-relaxed font-readable">
+                      {translations[lang] || (
+                        <span className="text-[#606060] animate-pulse font-readable">{t.listening}</span>
+                      )}
+                    </p>
+                  </div>
+                ))}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="mt-6 flex justify-center gap-4">
+              <button
+                onClick={() => {
+                  const baseUrl = window.location.origin;
+                  const fullUrl = `${baseUrl}${obsLinkWithSession}`;
+
+                  navigator.clipboard.writeText(fullUrl)
+                    .then(() => {
+                      const copyIndicator = document.createElement('div');
+                      copyIndicator.textContent = 'Link copied!';
+                      copyIndicator.style.position = 'fixed';
+                      copyIndicator.style.bottom = '20px';
+                      copyIndicator.style.left = '50%';
+                      copyIndicator.style.transform = 'translateX(-50%)';
+                      copyIndicator.style.backgroundColor = '#606060';
+                      copyIndicator.style.color = '#efefef';
+                      copyIndicator.style.padding = '10px 20px';
+                      copyIndicator.style.borderRadius = '8px';
+                      copyIndicator.style.zIndex = '9999';
+                      copyIndicator.style.opacity = '0';
+                      copyIndicator.style.transition = 'opacity 0.3s ease-in-out';
+                      copyIndicator.style.fontFamily = 'Technotype34, sans-serif';
+
+                      document.body.appendChild(copyIndicator);
+
+                      setTimeout(() => {
+                        copyIndicator.style.opacity = '1';
+                      }, 10);
+
+                      setTimeout(() => {
+                        copyIndicator.style.opacity = '0';
+                        setTimeout(() => {
+                          document.body.removeChild(copyIndicator);
+                        }, 300);
+                      }, 2000);
+                    })
+                    .catch(() => {
+                      // Failed to copy to clipboard
+                    });
+                }}
+                className="flex items-center gap-2 px-5 py-3 rounded-lg bg-[#606060] text-[#efefef] border border-[#efefef]/30 hover:bg-[#707070] transition-all"
+              >
+                <span>{t.openObsView}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                  <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                </svg>
+              </button>
+              <Link
+                to={cssCustomizerLinkWithSession}
+                target="_blank"
+                className="flex items-center gap-2 px-5 py-3 rounded-lg bg-[#1e1e1e]/60 text-[#606060] border border-[#606060]/30 hover:bg-[#1e1e1e] hover:text-[#efefef] transition-all"
+              >
+                <span>{t.customizeObs}</span>
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
