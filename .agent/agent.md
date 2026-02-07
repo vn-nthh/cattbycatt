@@ -10,13 +10,16 @@
 | Deepgram Nova-3 | ❌ Disabled | API `keyterm` param unreliable |
 | Google STT | ❌ Disabled | Speech adaptation unreliable |
 
+### Security Measures (Prompt Injection Mitigation)
+
+1. **Max 3 words per keyterm** - Validation in `App.tsx` rejects longer phrases
+2. **Keyterms shuffled** - Fisher-Yates shuffle in `geminiTranscription.ts` before adding to prompt
+
 ### Implementation Details
 
 **Gemini (Working):**
-- Keyterms are injected into the transcription prompt
-- See `convex/geminiTranscription.ts` - `buildTranscriptionPrompt()` function
+- Keyterms injected into prompt via `buildTranscriptionPrompt()`
 - localStorage key: `asr_keyterms`
 
 **Deepgram & Google STT (Disabled):**
-- Code exists but `supportsKeyterms` excludes these models
-- Re-test when APIs improve
+- `supportsKeyterms` excludes these models

@@ -1226,6 +1226,13 @@ function Content() {
                     if (e.key === ' ' && keytermsInput.trim()) {
                       e.preventDefault();
                       const term = keytermsInput.trim().replace(/_/g, ' ');
+                      // Security: limit to 3 words max to mitigate prompt injection
+                      const wordCount = term.split(/\s+/).length;
+                      if (wordCount > 3) {
+                        // Silently reject - could add toast notification here
+                        setKeytermsInput('');
+                        return;
+                      }
                       setKeytermsPills(prev => [...prev, term]);
                       setKeytermsInput('');
                     } else if (e.key === 'Backspace' && !keytermsInput && keytermsPills.length > 0) {

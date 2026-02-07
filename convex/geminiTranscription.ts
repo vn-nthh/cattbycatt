@@ -15,8 +15,15 @@ function buildTranscriptionPrompt(languageName: string, keyterms?: string[]): st
   let prompt = `Transcribe the following audio accurately. The audio is in ${languageName}. Return ONLY the transcribed text, nothing else. If the audio is silent or contains no speech, return an empty string.`;
 
   if (keyterms && keyterms.length > 0) {
+    // Security: shuffle keyterms to mitigate prompt injection
+    const shuffled = [...keyterms];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
     prompt += `\n\nIMPORTANT: The speaker may use the following specific terms. When you hear these words or similar-sounding words, use the exact spelling provided:\n`;
-    keyterms.forEach(term => {
+    shuffled.forEach(term => {
       prompt += `- "${term}"\n`;
     });
   }
