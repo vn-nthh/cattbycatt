@@ -15,6 +15,7 @@ import type {
 } from "convex/server";
 import type * as auth from "../auth.js";
 import type * as deepgramTranscription from "../deepgramTranscription.js";
+import type * as geminiE2E from "../geminiE2E.js";
 import type * as geminiTranscription from "../geminiTranscription.js";
 import type * as googleSttTranscription from "../googleSttTranscription.js";
 import type * as groqTranscription from "../groqTranscription.js";
@@ -34,6 +35,7 @@ import type * as translate from "../translate.js";
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   deepgramTranscription: typeof deepgramTranscription;
+  geminiE2E: typeof geminiE2E;
   geminiTranscription: typeof geminiTranscription;
   googleSttTranscription: typeof googleSttTranscription;
   groqTranscription: typeof groqTranscription;

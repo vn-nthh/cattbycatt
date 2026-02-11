@@ -3,6 +3,11 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 
+// Strip Gemini-inserted timestamps like "00:03" or "00:03, 00:04, 00:05"
+function stripTimestamps(text: string): string {
+  return text.replace(/(?:\d{1,2}:\d{2}(?:,\s*)?)+/g, '').replace(/\s{2,}/g, ' ').trim();
+}
+
 // Language code mapping for Gemini
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
@@ -79,78 +84,101 @@ async function performTranscription(audioBlob: ArrayBuffer, language: string, ke
     // Get language name for the prompt
     const languageName = LANGUAGE_NAMES[language] || "English";
 
-    // Prepare the request body for Gemini API
-    const requestBody = {
-      contents: [
-        {
-          parts: [
-            {
-              text: buildTranscriptionPrompt(languageName, keyterms)
-            },
-            {
-              inline_data: {
-                mime_type: "audio/wav",
-                data: audioBase64
-              }
-            }
-          ]
+    // Wrap the call in a retry loop
+    let lastError: Error | null = null;
+    const retries = 2;
+
+    for (let i = 0; i <= retries; i++) {
+      try {
+        if (i > 0) {
+          const delay = 500 * i;
+          await new Promise(resolve => setTimeout(resolve, delay));
+          console.log(`[GEMINI] Retry ${i}/${retries} after ${delay}ms...`);
         }
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        topP: 0.8,
-        topK: 40,
-        maxOutputTokens: 1024,
-      }
-    };
 
-    // Make request to Gemini API
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      }
-    );
+        // Prepare the request body for Gemini API
+        const requestBody = {
+          contents: [
+            {
+              parts: [
+                {
+                  text: buildTranscriptionPrompt(languageName, keyterms)
+                },
+                {
+                  inline_data: {
+                    mime_type: "audio/wav",
+                    data: audioBase64
+                  }
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            topP: 0.8,
+            topK: 40,
+            maxOutputTokens: 1024,
+          }
+        };
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[GEMINI] API error response:', errorText);
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+        // Make request to Gemini API
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiApiKey}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+
+          // Extract text from Gemini response
+          let text = '';
+          if (result.candidates && result.candidates.length > 0) {
+            const candidate = result.candidates[0];
+            if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+              text = candidate.content.parts[0].text || '';
+            }
+          }
+
+          console.log('[GEMINI] Transcription result:', {
+            text,
+            candidatesCount: result.candidates?.length || 0
+          });
+
+          return {
+            text: stripTimestamps(text.trim()),
+            confidence: undefined, // Gemini doesn't provide confidence scores
+          };
+        }
+
+        if (response.status === 503 || response.status === 429) {
+          const errorText = await response.text();
+          lastError = new Error(`HTTP ${response.status}: ${errorText}`);
+          continue;
+        }
+
+        const errorText = await response.text();
+        console.error('[GEMINI] API error response:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (i === retries) break;
+      }
     }
 
-    const result = await response.json();
-
-    // Extract text from Gemini response
-    let text = '';
-    if (result.candidates && result.candidates.length > 0) {
-      const candidate = result.candidates[0];
-      if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-        text = candidate.content.parts[0].text || '';
-      }
-    }
-
-    console.log('[GEMINI] Transcription result:', {
-      text,
-      candidatesCount: result.candidates?.length || 0
-    });
-
-    return {
-      text: text.trim(),
-      confidence: undefined, // Gemini doesn't provide confidence scores
-    };
+    throw lastError || new Error("Gemini transcription failed after retries");
   } catch (error) {
     console.error('Gemini API error:', error);
-
-    // Log more details about the error for debugging
     if (error instanceof Error) {
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
     }
-
     throw new Error(`Gemini transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

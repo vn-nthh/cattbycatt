@@ -44,12 +44,14 @@ interface MainAppTranslations {
   asrWebSpeech: string;
   asrWhisper: string;
   asrGemini: string;
+  asrGeminiE2E: string;
   asrDeepgram: string;
   asrGoogleStt: string;
   asrGoogleSttStreaming: string;
   translation: string;
   translationGemini: string;
   translationGpt: string;
+  translationE2EEnabled: string;
 
   // Actions
   startListening: string;
@@ -81,12 +83,14 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWebSpeech: "Default (WebSpeech API)",
     asrWhisper: "Whisper",
     asrGemini: "Gemini",
+    asrGeminiE2E: "Gemini E2E",
     asrDeepgram: "Nova-3 (Deepgram)",
     asrGoogleStt: "Google STT (VAD)",
     asrGoogleSttStreaming: "Google STT (Streaming)",
     translation: "Translation",
     translationGemini: "Default (Gemini 2.5 Flash Lite)",
     translationGpt: "GPT-4 Nano",
+    translationE2EEnabled: "(E2E enabled)",
     startListening: "Start Listening",
     customizeObsStyling: "🎨 Customize OBS Styling",
     console: "Console",
@@ -109,12 +113,14 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWebSpeech: "デフォルト（WebSpeech API）",
     asrWhisper: "Whisper",
     asrGemini: "Gemini",
+    asrGeminiE2E: "Gemini E2E",
     asrDeepgram: "Nova-3 (Deepgram)",
     asrGoogleStt: "Google STT (VAD)",
     asrGoogleSttStreaming: "Google STT (ストリーミング)",
     translation: "翻訳",
     translationGemini: "デフォルト（Gemini 2.5 Flash Lite）",
     translationGpt: "GPT-4 Nano",
+    translationE2EEnabled: "（E2E有効）",
     startListening: "聞き取り開始",
     customizeObsStyling: "🎨 OBSスタイルをカスタマイズ",
     console: "コンソール",
@@ -137,12 +143,14 @@ const mainAppTranslations: Record<string, MainAppTranslations> = {
     asrWebSpeech: "기본값 (WebSpeech API)",
     asrWhisper: "Whisper",
     asrGemini: "Gemini",
+    asrGeminiE2E: "Gemini E2E",
     asrDeepgram: "Nova-3 (Deepgram)",
     asrGoogleStt: "Google STT (VAD)",
     asrGoogleSttStreaming: "Google STT (스트리밍)",
     translation: "번역",
     translationGemini: "기본값 (Gemini 2.5 Flash Lite)",
     translationGpt: "GPT-4 Nano",
+    translationE2EEnabled: "(E2E 활성화됨)",
     startListening: "듣기 시작",
     customizeObsStyling: "🎨 OBS 스타일 사용자 지정",
     console: "콘솔",
@@ -259,7 +267,7 @@ function Content() {
   const [isStarted, setIsStarted] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [useGpt, setUseGpt] = useState(false);
-  const [asrModel, setAsrModel] = useState<'webspeech' | 'whisper' | 'gemini' | 'deepgram' | 'google-stt' | 'google-stt-streaming'>('webspeech');
+  const [asrModel, setAsrModel] = useState<'webspeech' | 'whisper' | 'gemini' | 'gemini-e2e' | 'deepgram' | 'google-stt' | 'google-stt-streaming'>('webspeech');
 
 
 
@@ -276,7 +284,11 @@ function Content() {
   // Check if current ASR model supports keyterms
   // NOTE: Deepgram and Google STT keyterm APIs don't work reliably (see .agent/agent.md)
   // Gemini uses prompt injection which does work
-  const supportsKeyterms = asrModel === 'gemini';
+  const supportsKeyterms = asrModel === 'gemini' ||
+    asrModel === 'gemini-e2e' ||
+    asrModel === 'deepgram' ||
+    asrModel === 'google-stt' ||
+    asrModel === 'google-stt-streaming';
 
   // UI language state to trigger re-renders when changed
   const [uiLanguage, setUiLanguage] = useState(() => {
@@ -303,6 +315,7 @@ function Content() {
   const translateText = useAction(api.translate.translateText);
   const transcribeWithGroq = useAction(api.groqTranscription.transcribeAudioStream);
   const transcribeWithGemini = useAction(api.geminiTranscription.transcribeAudioStream);
+  const transcribeAndTranslateE2E = useAction(api.geminiE2E.transcribeAndTranslate);
   const transcribeWithDeepgram = useAction(api.deepgramTranscription.transcribeAudioStream);
   const transcribeWithGoogleStt = useAction(api.googleSttTranscription.transcribeAudioStream);
   const sessionIdRef = useRef(getSessionId());
@@ -424,9 +437,9 @@ function Content() {
               throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB. Please speak for shorter periods.`);
             }
 
-            // Pass keyterms if supported (Gemini uses prompt injection)
+            // Pass keyterms if supported
             let keyterms = undefined;
-            if (selectedAsrModel === 'gemini') {
+            if (['gemini', 'deepgram', 'google-stt'].includes(selectedAsrModel)) {
               const saved = localStorage.getItem('asr_keyterms');
               if (saved) {
                 try {
@@ -444,6 +457,8 @@ function Content() {
               ...(keyterms && { keyterms })
             });
 
+            if (!shouldKeepListeningRef.current) return;
+
             if (result.text.trim()) {
               setTranscript(result.text);
               currentTranscriptRef.current = result.text;
@@ -455,15 +470,21 @@ function Content() {
 
                 try {
                   const translationsResult = await Promise.all(
-                    targetLanguages.map(targetLang =>
-                      translateText({
+                    targetLanguages.map(async (targetLang, index) => {
+                      // Stagger requests by 50ms to avoid simultaneous bursts
+                      await new Promise(resolve => setTimeout(resolve, index * 50));
+
+                      const translation = await translateText({
                         text: result.text.trim(),
                         sourceLanguage,
                         targetLanguage: targetLang,
                         useGpt,
-                      }).then(translation => ({ lang: targetLang, translation }))
-                    )
+                      });
+                      return { lang: targetLang, translation };
+                    })
                   );
+
+                  if (!shouldKeepListeningRef.current) return;
 
                   const newTranslations = translationsResult.reduce(
                     (acc, { lang, translation }) => ({
@@ -481,6 +502,89 @@ function Content() {
             }
           } catch {
             // Transcription failed silently
+          } finally {
+            setVadStatus('listening');
+            isSpeakingRef.current = false;
+          }
+        },
+        onVADMisfire: () => {
+          setVadStatus('listening');
+          isSpeakingRef.current = false;
+        },
+      });
+
+      setMicVAD(vad);
+      return vad;
+    } catch {
+      setVadStatus('idle');
+      return null;
+    }
+  };
+
+  // Initialize Gemini E2E (transcription + translation in one call)
+  const initializeGeminiE2E = async () => {
+    try {
+      setVadStatus('listening');
+
+      const vad = await MicVAD.new({
+        preSpeechPadFrames: 10,
+        positiveSpeechThreshold: 0.5,
+        negativeSpeechThreshold: 0.35,
+        redemptionFrames: 8,
+        frameSamples: 1536,
+        minSpeechFrames: 4,
+        onSpeechStart: () => {
+          setVadStatus('speaking');
+          isSpeakingRef.current = true;
+        },
+        onSpeechEnd: async (audio: Float32Array) => {
+          setVadStatus('processing');
+
+          try {
+            const durationInSeconds = audio.length / 16000;
+            if (durationInSeconds > 30) {
+              const maxSamples = 30 * 16000;
+              audio = audio.slice(0, maxSamples);
+            }
+
+            const wavBuffer = float32ArrayToWav(audio, 16000);
+            const fileSizeInMB = wavBuffer.byteLength / (1024 * 1024);
+            if (fileSizeInMB > 25) {
+              throw new Error(`Audio file too large: ${fileSizeInMB.toFixed(2)} MB`);
+            }
+
+            // Get keyterms
+            let keyterms = undefined;
+            const saved = localStorage.getItem('asr_keyterms');
+            if (saved) {
+              try {
+                keyterms = JSON.parse(saved);
+              } catch (e) {
+                console.warn('Failed to parse keyterms', e);
+              }
+            }
+
+            // Single E2E call — gets transcript + translations
+            const result = await transcribeAndTranslateE2E({
+              audioBlob: wavBuffer,
+              sourceLanguage,
+              sessionId: sessionIdRef.current,
+              ...(keyterms && { keyterms })
+            });
+
+            if (!shouldKeepListeningRef.current) return;
+
+            if (result.transcript.trim()) {
+              setTranscript(result.transcript);
+              currentTranscriptRef.current = result.transcript;
+
+              // Set translations directly from E2E result
+              if (result.translations && typeof result.translations === 'object') {
+                setTranslations(result.translations as Record<string, string>);
+              }
+            }
+          } catch {
+            // E2E failed silently
           } finally {
             setVadStatus('listening');
             isSpeakingRef.current = false;
@@ -786,6 +890,7 @@ function Content() {
       const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
 
       mediaRecorder.ondataavailable = (event) => {
+        if (!shouldKeepListeningRef.current) return;
         if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
           ws.send(event.data);
         }
@@ -879,9 +984,17 @@ function Content() {
             setIsRecording(true);
           }
         });
+      } else if (asrModel === 'gemini-e2e') {
+        // Gemini E2E: transcription + translation in one call
+        initializeGeminiE2E().then(vad => {
+          if (vad) {
+            vad.start();
+            setIsRecording(true);
+          }
+        });
       } else {
         // Use VAD-based approach for Whisper, Gemini
-        initializeAdvancedASR(asrModel).then(vad => {
+        initializeAdvancedASR(asrModel as 'whisper' | 'gemini' | 'deepgram' | 'google-stt').then(vad => {
           if (vad) {
             vad.start();
             setIsRecording(true);
@@ -995,6 +1108,8 @@ function Content() {
                 }),
                 {}
               );
+
+              if (!shouldKeepListeningRef.current) return;
 
               setTranslations(newTranslations); // Replace translations completely
             } catch {
@@ -1313,11 +1428,12 @@ function Content() {
                   <select
                     className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
                     value={asrModel}
-                    onChange={(e) => setAsrModel(e.target.value as 'webspeech' | 'whisper' | 'gemini' | 'deepgram' | 'google-stt' | 'google-stt-streaming')}
+                    onChange={(e) => setAsrModel(e.target.value as 'webspeech' | 'whisper' | 'gemini' | 'gemini-e2e' | 'deepgram' | 'google-stt' | 'google-stt-streaming')}
                   >
                     <option value="webspeech">{t.asrWebSpeech}</option>
                     <option value="whisper">{t.asrWhisper}</option>
                     <option value="gemini">{t.asrGemini}</option>
+                    <option value="gemini-e2e">{t.asrGeminiE2E}</option>
                     <option value="deepgram">{t.asrDeepgram}</option>
                     <option value="google-stt">{t.asrGoogleStt}</option>
                     <option value="google-stt-streaming">{t.asrGoogleSttStreaming}</option>
@@ -1332,12 +1448,19 @@ function Content() {
                 </label>
                 <div className="flex-1 min-w-0 overflow-hidden rounded-lg">
                   <select
-                    className="w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all hover:bg-[#707070] focus:outline-none focus:border-[#efefef] custom-select cursor-pointer rounded-lg"
-                    value={useGpt ? "gpt" : "gemini"}
+                    className={`w-full px-4 py-2 bg-[#606060] text-[#efefef] border border-[#efefef]/50 transition-all focus:outline-none rounded-lg ${asrModel === 'gemini-e2e' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#707070] focus:border-[#efefef] custom-select cursor-pointer'}`}
+                    value={asrModel === 'gemini-e2e' ? 'e2e' : (useGpt ? "gpt" : "gemini")}
                     onChange={(e) => setUseGpt(e.target.value === "gpt")}
+                    disabled={asrModel === 'gemini-e2e'}
                   >
-                    <option value="gemini">{t.translationGemini}</option>
-                    <option value="gpt">{t.translationGpt}</option>
+                    {asrModel === 'gemini-e2e' ? (
+                      <option value="e2e">{t.translationE2EEnabled}</option>
+                    ) : (
+                      <>
+                        <option value="gemini">{t.translationGemini}</option>
+                        <option value="gpt">{t.translationGpt}</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
