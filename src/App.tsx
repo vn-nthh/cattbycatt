@@ -284,7 +284,8 @@ function Content() {
   // Check if current ASR model supports keyterms
   // NOTE: Deepgram and Google STT keyterm APIs don't work reliably (see .agent/agent.md)
   // Gemini uses prompt injection which does work
-  const supportsKeyterms = asrModel === 'gemini' ||
+  const supportsKeyterms = asrModel === 'whisper' ||
+    asrModel === 'gemini' ||
     asrModel === 'gemini-e2e' ||
     asrModel === 'deepgram' ||
     asrModel === 'google-stt' ||
@@ -439,7 +440,7 @@ function Content() {
 
             // Pass keyterms if supported
             let keyterms = undefined;
-            if (['gemini', 'deepgram', 'google-stt'].includes(selectedAsrModel)) {
+            if (['whisper', 'gemini', 'deepgram', 'google-stt'].includes(selectedAsrModel)) {
               const saved = localStorage.getItem('asr_keyterms');
               if (saved) {
                 try {

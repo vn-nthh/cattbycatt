@@ -7,6 +7,7 @@ export const transcribeAudio = action({
   args: {
     audioBlob: v.bytes(),
     language: v.string(),
+    keyterms: v.optional(v.array(v.string())),
   },
   returns: v.object({
     text: v.string(),
@@ -14,7 +15,7 @@ export const transcribeAudio = action({
   }),
   handler: async (ctx, args) => {
     try {
-      return await performTranscription(args.audioBlob, args.language);
+      return await performTranscription(args.audioBlob, args.language, args.keyterms);
     } catch (error) {
       console.error('Groq transcription error:', error);
       throw new Error(`Transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -22,8 +23,23 @@ export const transcribeAudio = action({
   },
 });
 
+// Build a language-native prompt from keyterms to condition Whisper
+function buildKeytermPrompt(language: string, keyterms: string[]): string {
+  const termsList = keyterms.join(', ');
+  // Write the prompt in the source language so Whisper stays in that language
+  switch (language) {
+    case 'ja':
+      return `キーワード：${termsList}。`;
+    case 'ko':
+      return `키워드: ${termsList}.`;
+    case 'en':
+    default:
+      return `Keywords: ${termsList}.`;
+  }
+}
+
 // Helper function to perform the actual transcription
-async function performTranscription(audioBlob: ArrayBuffer, language: string): Promise<{
+async function performTranscription(audioBlob: ArrayBuffer, language: string, keyterms?: string[]): Promise<{
   text: string;
   confidence?: number;
 }> {
@@ -68,8 +84,21 @@ async function performTranscription(audioBlob: ArrayBuffer, language: string): P
       'Content-Disposition: form-data; name="temperature"',
       '',
       '0.0',
-      `--${boundary}--`,
     ];
+
+    // Add prompt from keyterms if provided
+    if (keyterms && keyterms.length > 0) {
+      const prompt = buildKeytermPrompt(language, keyterms);
+      console.log(`[GROQ] Using initial prompt: "${prompt}"`);
+      formDataParts.push(
+        `--${boundary}`,
+        'Content-Disposition: form-data; name="prompt"',
+        '',
+        prompt,
+      );
+    }
+
+    formDataParts.push(`--${boundary}--`);
 
     const formDataBody = formDataParts.join('\r\n');
 
@@ -90,22 +119,63 @@ async function performTranscription(audioBlob: ArrayBuffer, language: string): P
 
     const transcription = await response.json();
 
-    // Extract text and confidence from the response
-    const text = transcription.text || '';
+    // Quality filter thresholds (Whisper standard values)
+    const NO_SPEECH_PROB_THRESHOLD = 0.6;
+    const COMPRESSION_RATIO_THRESHOLD = 2.4;
+    const AVG_LOGPROB_THRESHOLD = -1.0;
 
-    // Calculate confidence from segments if available
+    // Filter segments by quality metrics to prevent hallucinations
+    let text = transcription.text || '';
     let confidence: number | undefined = undefined;
+
     if (transcription.segments && Array.isArray(transcription.segments) && transcription.segments.length > 0) {
-      const totalLogProb = transcription.segments.reduce((acc: number, seg: any) => {
-        return acc + (seg.avg_logprob || 0);
-      }, 0);
-      confidence = totalLogProb / transcription.segments.length;
+      const totalSegments = transcription.segments.length;
+      const acceptedSegments: any[] = [];
+
+      for (const seg of transcription.segments) {
+        const noSpeechProb = seg.no_speech_prob ?? 0;
+        const compressionRatio = seg.compression_ratio ?? 0;
+        const avgLogprob = seg.avg_logprob ?? 0;
+
+        // Check no_speech_prob — high value means likely silence/noise
+        if (noSpeechProb > NO_SPEECH_PROB_THRESHOLD) {
+          console.log(`[GROQ] Filtered out segment (no_speech_prob=${noSpeechProb.toFixed(3)}): "${seg.text}"`);
+          continue;
+        }
+
+        // Check compression_ratio — high value means likely repetitive hallucination
+        if (compressionRatio > COMPRESSION_RATIO_THRESHOLD) {
+          console.log(`[GROQ] Filtered out segment (compression_ratio=${compressionRatio.toFixed(3)}): "${seg.text}"`);
+          continue;
+        }
+
+        // Check avg_logprob — very low value means low-confidence hallucination
+        if (avgLogprob < AVG_LOGPROB_THRESHOLD) {
+          console.log(`[GROQ] Filtered out segment (avg_logprob=${avgLogprob.toFixed(3)}): "${seg.text}"`);
+          continue;
+        }
+
+        acceptedSegments.push(seg);
+      }
+
+      // Reconstruct text from accepted segments only
+      if (acceptedSegments.length > 0) {
+        text = acceptedSegments.map((seg: any) => seg.text).join('');
+        const totalLogProb = acceptedSegments.reduce((acc: number, seg: any) => acc + (seg.avg_logprob || 0), 0);
+        confidence = totalLogProb / acceptedSegments.length;
+      } else {
+        // All segments filtered out — return empty
+        text = '';
+        confidence = undefined;
+      }
+
+      console.log(`[GROQ] Segment filtering: ${acceptedSegments.length}/${totalSegments} segments accepted`);
     }
 
     console.log('[GROQ] Transcription result:', {
       text,
       confidence,
-      segmentsCount: transcription.segments?.length || 0
+      segmentsCount: transcription.segments?.length || 0,
     });
 
     return {
@@ -130,6 +200,7 @@ export const transcribeAudioStream = action({
     audioBlob: v.bytes(),
     language: v.string(),
     sessionId: v.string(),
+    keyterms: v.optional(v.array(v.string())),
   },
   returns: v.object({
     text: v.string(),
@@ -138,7 +209,7 @@ export const transcribeAudioStream = action({
   }),
   handler: async (ctx, args) => {
     try {
-      const result = await performTranscription(args.audioBlob, args.language);
+      const result = await performTranscription(args.audioBlob, args.language, args.keyterms);
 
       // For Groq Whisper, all results are considered final
       return {
