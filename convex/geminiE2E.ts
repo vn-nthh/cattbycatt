@@ -2,6 +2,7 @@
 
 import { v } from "convex/values";
 import { action } from "./_generated/server";
+import { getGeminiEndpoint } from "./geminiHelper";
 
 // Strip Gemini-inserted timestamps like "00:03" or "00:03, 00:04, 00:05"
 function stripTimestamps(text: string): string {
@@ -19,7 +20,6 @@ const LANGUAGE_NAMES: Record<string, string> = {
 async function callGeminiWithAudio(
     audioBase64: string,
     systemPrompt: string,
-    geminiApiKey: string,
     maxTokens: number = 1024,
     retries: number = 2
 ): Promise<string> {
@@ -33,27 +33,27 @@ async function callGeminiWithAudio(
                 console.log(`[GEMINI-E2E] Retry ${i}/${retries} after ${delay}ms...`);
             }
 
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiApiKey}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
-                        contents: [{
-                            parts: [{
-                                inline_data: { mime_type: "audio/wav", data: audioBase64 }
-                            }]
-                        }],
-                        generationConfig: {
-                            temperature: 0.2,
-                            topP: 0.8,
-                            topK: 40,
-                            maxOutputTokens: maxTokens,
-                        }
-                    }),
-                }
-            );
+            const endpoint = await getGeminiEndpoint('gemini-2.5-flash-lite');
+
+            const response = await fetch(endpoint.url, {
+                method: 'POST',
+                headers: endpoint.headers,
+                body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    contents: [{
+                        role: 'user',
+                        parts: [{
+                            inline_data: { mime_type: "audio/wav", data: audioBase64 }
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.2,
+                        topP: 0.8,
+                        topK: 40,
+                        maxOutputTokens: maxTokens,
+                    }
+                }),
+            });
 
             if (response.ok) {
                 const result = await response.json();
@@ -108,10 +108,6 @@ export const transcribeAndTranslate = action({
         translations: v.any(),
     }),
     handler: async (ctx, args) => {
-        const geminiApiKey = process.env.GEMINI_API_KEY;
-        if (!geminiApiKey) {
-            throw new Error("GEMINI_API_KEY environment variable is not set");
-        }
 
         try {
             const audioBuffer = Buffer.from(args.audioBlob);
@@ -131,8 +127,7 @@ export const transcribeAndTranslate = action({
                 // Request 1: Audio → Transcription
                 callGeminiWithAudio(
                     audioBase64,
-                    buildTranscriptionPrompt(sourceName, args.keyterms),
-                    geminiApiKey
+                    buildTranscriptionPrompt(sourceName, args.keyterms)
                 ),
                 // Request 2+: Audio → Translation (one per target language)
                 ...targetLanguages.map(async (lang, index) => {
@@ -145,7 +140,7 @@ export const transcribeAndTranslate = action({
                         translationPrompt += `\n\nThe speaker may mention the following terms: ${args.keyterms.map(t => `"${t}"`).join(', ')}.`;
                     }
 
-                    return callGeminiWithAudio(audioBase64, translationPrompt, geminiApiKey, 500);
+                    return callGeminiWithAudio(audioBase64, translationPrompt, 500);
                 }),
             ]);
 

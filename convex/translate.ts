@@ -2,6 +2,7 @@
 
 import { v } from "convex/values";
 import { action } from "./_generated/server";
+import { getGeminiEndpoint } from "./geminiHelper";
 
 // Strip Gemini-inserted timestamps like "00:03" or "00:03, 00:04, 00:05"
 function stripTimestamps(text: string): string {
@@ -171,8 +172,7 @@ function isTranslationDenial(input: string, output: string): { denied: boolean; 
 
 async function callGeminiTranslate(
   text: string,
-  systemPrompt: string,
-  geminiApiKey: string
+  systemPrompt: string
 ): Promise<string> {
   let lastError: Error | null = null;
   const retries = 2;
@@ -185,31 +185,28 @@ async function callGeminiTranslate(
         console.log(`[Gemini] Retry ${i}/${retries} after ${delay}ms...`);
       }
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+      const endpoint = await getGeminiEndpoint('gemini-2.5-flash-lite');
+      const response = await fetch(endpoint.url, {
+        method: 'POST',
+        headers: endpoint.headers,
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: systemPrompt }]
           },
-          body: JSON.stringify({
-            systemInstruction: {
-              parts: [{ text: systemPrompt }]
-            },
-            contents: [
-              {
-                parts: [{ text: text }]
-              }
-            ],
-            generationConfig: {
-              temperature: 0.3,
-              topP: 0.8,
-              topK: 40,
-              maxOutputTokens: 500,
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: text }]
             }
-          }),
-        }
-      );
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            topP: 0.8,
+            topK: 40,
+            maxOutputTokens: 500,
+          }
+        }),
+      });
 
       if (response.ok) {
         const result = await response.json();
@@ -250,17 +247,12 @@ async function callGeminiTranslate(
 
 // Helper function to translate using Gemini 2.5 Flash Lite directly
 async function translateWithGemini(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-  if (!geminiApiKey) {
-    throw new Error("GEMINI_API_KEY environment variable is not set");
-  }
-
   const primaryPrompt = `Translate ${LANGUAGES[sourceLanguage]} to ${LANGUAGES[targetLanguage]}. Output ONLY the translation, nothing else.`;
   const retryPrompt = `Translate to ${LANGUAGES[targetLanguage]}: ${text}`;
 
   try {
     // Primary attempt with systemInstruction separation
-    const result = await callGeminiTranslate(text, primaryPrompt, geminiApiKey);
+    const result = await callGeminiTranslate(text, primaryPrompt);
     const denial = isTranslationDenial(text, result);
 
     if (!denial.denied) {
@@ -271,7 +263,7 @@ async function translateWithGemini(text: string, sourceLanguage: string, targetL
     console.warn(`[Gemini] Translation denial detected (${denial.reason}). Input: "${text}", Output: "${result}". Retrying...`);
 
     try {
-      const retryResult = await callGeminiTranslate(text, retryPrompt, geminiApiKey);
+      const retryResult = await callGeminiTranslate(text, retryPrompt);
       const retryDenial = isTranslationDenial(text, retryResult);
 
       if (!retryDenial.denied) {

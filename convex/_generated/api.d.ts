@@ -16,6 +16,7 @@ import type {
 import type * as auth from "../auth.js";
 import type * as deepgramTranscription from "../deepgramTranscription.js";
 import type * as geminiE2E from "../geminiE2E.js";
+import type * as geminiHelper from "../geminiHelper.js";
 import type * as geminiTranscription from "../geminiTranscription.js";
 import type * as googleSttTranscription from "../googleSttTranscription.js";
 import type * as groqTranscription from "../groqTranscription.js";
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   deepgramTranscription: typeof deepgramTranscription;
   geminiE2E: typeof geminiE2E;
+  geminiHelper: typeof geminiHelper;
   geminiTranscription: typeof geminiTranscription;
   googleSttTranscription: typeof googleSttTranscription;
   groqTranscription: typeof groqTranscription;

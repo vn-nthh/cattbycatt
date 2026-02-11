@@ -2,6 +2,7 @@
 
 import { v } from "convex/values";
 import { action } from "./_generated/server";
+import { getGeminiEndpoint } from "./geminiHelper";
 
 // Strip Gemini-inserted timestamps like "00:03" or "00:03, 00:04, 00:05"
 function stripTimestamps(text: string): string {
@@ -61,11 +62,6 @@ async function performTranscription(audioBlob: ArrayBuffer, language: string, ke
   text: string;
   confidence?: number;
 }> {
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-  if (!geminiApiKey) {
-    throw new Error("GEMINI_API_KEY environment variable is not set");
-  }
-
   try {
     // Convert ArrayBuffer to Buffer for Node.js compatibility
     const audioBuffer = Buffer.from(audioBlob);
@@ -100,6 +96,7 @@ async function performTranscription(audioBlob: ArrayBuffer, language: string, ke
         const requestBody = {
           contents: [
             {
+              role: 'user',
               parts: [
                 {
                   text: buildTranscriptionPrompt(languageName, keyterms)
@@ -121,17 +118,13 @@ async function performTranscription(audioBlob: ArrayBuffer, language: string, ke
           }
         };
 
-        // Make request to Gemini API
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiApiKey}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-          }
-        );
+        // Make request using shared endpoint helper
+        const endpoint = await getGeminiEndpoint('gemini-2.5-flash-lite');
+        const response = await fetch(endpoint.url, {
+          method: 'POST',
+          headers: endpoint.headers,
+          body: JSON.stringify(requestBody),
+        });
 
         if (response.ok) {
           const result = await response.json();
